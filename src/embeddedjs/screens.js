@@ -70,9 +70,9 @@ export function renderMainScreen(state) {
     if (!isStopped) {
         // SELECT button -> Stop Square
         drawStopSquare(176, 106, COLOR_CORAL);
+        // DOWN button -> Alarm clock
+        drawAlarmClock(174, 192, COLOR_WHITE);
     }
-    // DOWN button -> Alarm clock
-    drawAlarmClock(174, 192, COLOR_WHITE);
 }
 
 /**

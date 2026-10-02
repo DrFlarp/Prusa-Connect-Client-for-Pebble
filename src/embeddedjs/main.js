@@ -171,6 +171,12 @@ prusa.addEventListener((state) => {
         printerState.finishClock = PrusaConnect.formatCompletionClock(state.completionTime);
     }
 
+    if (state.fileName === "Print Stopped" || state.fileName === "Stopped") {
+        printerState.status = "Stopped";
+        cancelReminder();
+        reminderActive = false;
+    }
+
     if (printerState.progress >= 100) {
         printerState.status = "Finished";
         if (currentScreen === SCREEN_MAIN) {
@@ -192,11 +198,12 @@ new PebbleButton({
     onPush(pushed, button) {
         switch (currentScreen) {
             case SCREEN_MAIN:
-                if (button === "select" && printerState.status.toLowerCase() !== "stopped") {
+                const isStopped = printerState.status.toLowerCase() === "stopped";
+                if (button === "select" && !isStopped) {
                     // Navigate to Stop Print confirmation
                     currentScreen = SCREEN_STOP_CONFIRM;
                     drawCurrentScreen();
-                } else if (button === "down") {
+                } else if (button === "down" && !isStopped) {
                     // Navigate to Set Reminder
                     currentScreen = SCREEN_REMINDER;
                     drawCurrentScreen();
