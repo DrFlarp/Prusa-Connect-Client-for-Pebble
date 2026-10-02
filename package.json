@@ -6,9 +6,6 @@
     "pebble-app"
   ],
   "private": true,
-  "dependencies": {
-    "@moddable/pebbleproxy": "^0.2.0"
-  },
   "pebble": {
     "displayName": "Prusa-Connect",
     "uuid": "1692c2a1-b622-4db0-b735-35b024ba957a",
@@ -23,10 +20,20 @@
       "watchface": false
     },
     "messageKeys": [
-      "dummy"
+      "Progress",
+      "FileName",
+      "PrinterName",
+      "CompletionTime",
+      "StopSignal"
     ],
     "resources": {
       "media": []
     }
+  },
+  "dependencies": {
+    "@moddable/pebbleproxy": "^0.2.0"
+  },
+  "scripts": {
+    "postinstall": "node scripts/patch-pebbleproxy.js"
   }
 }

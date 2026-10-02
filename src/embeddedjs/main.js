@@ -1,6 +1,18 @@
-console.log("Hello, Pebble.");
+console.log("Hello, Pebble Alloy.");
+import PrusaConnect from "./prusa-api";
 
+const prusa = new PrusaConnect();
 
+prusa.addEventListener((state) => {
+    console.log("=== PRUSA UPDATE RECEIVED ===");
+    console.log("Printer: " + state.printerName);
+    console.log("Progress: " + state.progress + "%");
+    console.log("File: " + state.fileName);
+    console.log("Completion (ISO): " + state.completionTime);
+    console.log("Est Finish: " + PrusaConnect.formatCompletionClock(state.completionTime));
+});
 
-//const prusaAPI = new PrusaConnectAPI("eyJhbGciOiJSUzI1NiIsImtpZCI6IkhTSU53OXQzalhZd0lGaUcxNWVleW1BNlJscFFwVW5veTFrOG0wTW4yM0EiLCJ0eXAiOiJKV1QifQ.eyJqdGkiOiIwNTk3N2YzZDc3MGM0NjcyODIwYjM2NWVkMmJjYzM3YiIsInN1YiI6IjE5NTk3NjQiLCJleHAiOjE3OTA2Mzc5NDkuODg4MDc4LCJzaWQiOiI3MDg4MGJiZC03MjgyLTRkNmEtYmRkMC01ZDlhODdhNDg3NWMiLCJhcHAiOiJjb25uZWN0IiwidHlwZSI6ImFjY2VzcyIsInNjb3BlIjoiYmFzaWNfaW5mbyB1c2VyX29wZXJhdGlvbnMgZW1haWxfbGlzdHMgb3BlbmlkIGNvbm5lY3QiLCJjb25uZWN0X2lkIjoiNjg2MjUifQ.jN9ZT0D1Wm7bxbSZzIAOdb35srhzveK2tpgnKvX6Kjk_N5_2tYagqVNU6Gf3jgFRiIcRrt2t8Q5iALOQYhc3GQRnfSSLE69ROb47-vwhHPbc9LPxaMfjj9CEOoNpr3IGpuFrYVu4liLEtV0h8tmnnBaFwsZFsDos2BKEgtbkvYCaDpP7BaGKPocExYpCAWS14G9FPLwXk74HJZjwerdqewV2nB143MCwuQWbd6qxDqBF1PJiRcQbA5oNO1WGmtoVHSvqM_TRiCdX5_-BwL-nTQj4p9pLJhJgxk_2ve93yfKANVNwu_CN11ParYZPPoBjFEvCUHE2aINoU74CunkO3w");
-export { }
+// Example: Calling prusa.sendStopSignal() sends StopSignal to PKJS
+// prusa.sendStopSignal();
+
+export { prusa };
