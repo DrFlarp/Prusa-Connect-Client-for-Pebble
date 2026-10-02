@@ -6,7 +6,11 @@
 	"modules": {
 		"*": [
 			"./main",
-			"./prusa-api"
+			"./prusa-api",
+			"./theme",
+			"./icons",
+			"./screens",
+			"./state"
 		]
 	}
 }

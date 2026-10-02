@@ -1,0 +1,151 @@
+import {
+    render,
+    COLOR_CORAL,
+    COLOR_BLACK,
+    COLOR_WHITE,
+    COLOR_GREEN,
+    COLOR_GRAY,
+    fontHeader,
+    fontTitle,
+    fontBody,
+    fontSmall,
+    truncateText
+} from "./theme";
+
+import {
+    draw3DPrinter,
+    drawCheckmark,
+    drawCross,
+    drawStopSquare,
+    drawAlarmClock
+} from "./icons";
+
+/**
+ * 1. MAIN MONITORING SCREEN (Active print / Idle status)
+ */
+export function renderMainScreen(state) {
+    const isStopped = state.status.toLowerCase() === "stopped";
+
+    // Background
+    render.fillRectangle(COLOR_BLACK, 0, 0, screen.width, screen.height);
+
+    // Coral header bar with printer name
+    render.fillRectangle(COLOR_CORAL, 0, 0, screen.width, 32);
+    render.drawText(state.printerName, fontHeader, COLOR_BLACK, 6, 7);
+
+    // File name
+    const displayFile = truncateText(state.fileName, fontTitle, 160);
+    render.drawText(displayFile, fontTitle, COLOR_WHITE, 6, 38);
+
+    // Status label
+    render.drawText(`Status: ${state.status}`, fontBody, COLOR_WHITE, 6, 66);
+
+    // Progress bar frame
+    const barX = 6;
+    const barY = 92;
+    const barW = 144;
+    const barH = 16;
+    render.fillRectangle(COLOR_WHITE, barX, barY, barW, 2);
+    render.fillRectangle(COLOR_WHITE, barX, barY + barH - 2, barW, 2);
+    render.fillRectangle(COLOR_WHITE, barX, barY, 2, barH);
+    render.fillRectangle(COLOR_WHITE, barX + barW - 2, barY, 2, barH);
+
+    // Fill progress bar according to percentage
+    const fillWidth = Math.max(0, Math.min(barW - 4, Math.round((barW - 4) * (state.progress / 100))));
+    if (fillWidth > 0) {
+        render.fillRectangle(COLOR_CORAL, barX + 2, barY + 2, fillWidth, barH - 4);
+    }
+
+    // Centered percentage text below progress bar
+    const percentStr = `${state.progress}%`;
+    const percentW = render.getTextWidth(percentStr, fontBody);
+    const percentX = barX + Math.round((barW - percentW) / 2);
+    render.drawText(percentStr, fontBody, COLOR_WHITE, percentX, 114);
+
+    // Estimated finish time
+    const finishStr = isStopped ? "Finish: --:--" : `Finish: ${state.finishClock}`;
+    render.drawText(finishStr, fontBody, COLOR_WHITE, 6, 138);
+
+    // Hardware button action cues
+    if (!isStopped) {
+        // SELECT button -> Stop Square
+        drawStopSquare(176, 106, COLOR_CORAL);
+    }
+    // DOWN button -> Alarm clock
+    drawAlarmClock(174, 192, COLOR_WHITE);
+}
+
+/**
+ * 2. STOP PRINT CONFIRMATION SCREEN
+ */
+export function renderStopConfirmScreen(state) {
+    // Full coral background
+    render.fillRectangle(COLOR_CORAL, 0, 0, screen.width, screen.height);
+
+    // Header title
+    render.drawText("STOP PRINT?", fontTitle, COLOR_WHITE, 8, 12);
+
+    // 3D Printer Graphic with black printed model on coral background
+    draw3DPrinter(20, 48, COLOR_BLACK, true);
+
+    // Abort prompt
+    render.drawText("Abort print job?", fontBody, COLOR_WHITE, 8, 114);
+
+    const displayFile = truncateText(state.fileName, fontSmall, 155);
+    render.drawText(displayFile, fontSmall, COLOR_WHITE, 8, 140);
+
+    // Action cues: UP = confirm (checkmark), DOWN = cancel (cross)
+    drawCheckmark(176, 38, COLOR_GREEN);
+    drawCross(176, 174, COLOR_WHITE);
+}
+
+/**
+ * 3. SET REMINDER SCREEN
+ */
+export function renderReminderScreen(state) {
+    // Black background
+    render.fillRectangle(COLOR_BLACK, 0, 0, screen.width, screen.height);
+
+    // Coral header
+    render.fillRectangle(COLOR_CORAL, 0, 0, screen.width, 32);
+    render.drawText("SET REMINDER", fontHeader, COLOR_BLACK, 8, 7);
+
+    // 3D Printer Graphic
+    draw3DPrinter(20, 48, COLOR_CORAL, false);
+
+    // Reminder prompt
+    render.drawText("Notify when done?", fontBody, COLOR_WHITE, 8, 114);
+    render.drawText(`Est: ${state.finishClock}`, fontBody, COLOR_CORAL, 8, 140);
+
+    // Action cues: UP = confirm (checkmark), DOWN = cancel (cross)
+    drawCheckmark(176, 38, COLOR_GREEN);
+    drawCross(176, 174, COLOR_WHITE);
+}
+
+/**
+ * 4. PRINT FINISHED SCREEN
+ */
+export function renderFinishedScreen(state) {
+    // Black background
+    render.fillRectangle(COLOR_BLACK, 0, 0, screen.width, screen.height);
+
+    // Coral header
+    render.fillRectangle(COLOR_CORAL, 0, 0, screen.width, 32);
+    render.drawText("PRINT FINISHED!", fontHeader, COLOR_BLACK, 8, 7);
+
+    // 3D Printer Graphic with green completed model
+    draw3DPrinter(20, 48, COLOR_GREEN, false);
+
+    // File name
+    const displayFile = truncateText(state.fileName, fontBody, 155);
+    render.drawText(displayFile, fontBody, COLOR_WHITE, 8, 108);
+
+    // Status in vibrant green
+    render.drawText("Ready to remove!", fontBody, COLOR_GREEN, 8, 134);
+
+    // Subtitle in gray
+    render.drawText("Bed cooling down", fontSmall, COLOR_GRAY, 8, 158);
+
+    // Action cue: SELECT = dismiss (checkmark)
+    drawCheckmark(176, 106, COLOR_GREEN);
+}
