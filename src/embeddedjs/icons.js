@@ -55,8 +55,8 @@ export function draw3DPrinter(x, y, objectColor, isCoralBg = false) {
     const bgColor = isCoralBg ? COLOR_CORAL : COLOR_BLACK;
 
     // Top filament spool (white ring with center hole)
-    render.drawCircle(COLOR_WHITE, x + 20, y + 6, 5);
-    render.drawCircle(bgColor, x + 20, y + 6, 2);
+    render.drawCircle(COLOR_WHITE, x + 20, y + 6, 5, 0, 360);
+    render.drawCircle(bgColor, x + 20, y + 6, 2, 0, 360);
 
     // Filament guide line
     render.fillRectangle(COLOR_WHITE, x + 20, y + 11, 2, 4);
