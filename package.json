@@ -2,12 +2,14 @@
   "name": "Prusa-Connect",
   "author": "MakeAwesomeHappen",
   "version": "1.0.0",
+  "description": "Real-time 3D print monitor and remote controller for Prusa printers via Prusa Connect.",
   "keywords": [
     "pebble-app"
   ],
   "private": true,
   "pebble": {
-    "displayName": "Prusa-Connect",
+    "displayName": "Prusa Connect",
+    "description": "Real-time 3D print monitor and remote controller for Prusa printers via Prusa Connect.",
     "uuid": "1692c2a1-b622-4db0-b735-35b024ba957a",
     "projectType": "moddable",
     "sdkVersion": "3",
@@ -32,7 +34,14 @@
       "Password"
     ],
     "resources": {
-      "media": []
+      "media": [
+        {
+          "type": "bitmap",
+          "name": "IMAGE_MENU_ICON",
+          "file": "images/menu_icon.png",
+          "menuIcon": true
+        }
+      ]
     }
   },
   "dependencies": {
