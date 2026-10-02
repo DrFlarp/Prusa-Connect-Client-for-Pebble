@@ -59,6 +59,12 @@ function fetchPrusaData() {
                 PrinterName: printerName,
                 CompletionTime: completionTime
             });
+
+            if (completionTime && progress < 100) {
+                syncTimelinePin(printerName, fileName, progress, completionTime);
+            } else if (progress >= 100) {
+                removeTimelinePin();
+            }
         } catch (e) {
             console.log("[PKJS] JSON parse error: " + e);
         }
@@ -71,9 +77,74 @@ function fetchPrusaData() {
     xhr.send();
 }
 
+var TIMELINE_PIN_ID = "prusa-print-finish";
+
+function syncTimelinePin(printerName, fileName, progress, completionTime) {
+    if (!Pebble.insertTimelinePin) {
+        console.log("[PKJS] Pebble.insertTimelinePin is not supported in this environment.");
+        return;
+    }
+
+    var completionDate = new Date(completionTime);
+    var reminderDate = new Date(completionDate.getTime() - 5 * 60 * 1000);
+    var now = new Date();
+    if (reminderDate <= now) {
+        reminderDate = completionDate;
+    }
+
+    var pin = {
+        id: TIMELINE_PIN_ID,
+        time: completionTime,
+        layout: {
+            type: "genericPin",
+            title: "Print Complete",
+            subtitle: printerName + " (" + progress + "%)",
+            body: "File: " + fileName + "\nPrinter: " + printerName + "\nProgress: " + progress + "%",
+            tinyIcon: "system://images/ALARM_CLOCK"
+        },
+        reminders: [
+            {
+                time: reminderDate.toISOString(),
+                layout: {
+                    type: "genericReminder",
+                    title: "Print Finishes Soon",
+                    locationName: printerName,
+                    tinyIcon: "system://images/ALARM_CLOCK"
+                }
+            }
+        ],
+        actions: [
+            {
+                title: "Open App",
+                type: "openWatchApp"
+            }
+        ]
+    };
+
+    console.log("[PKJS] Inserting timeline pin for " + completionTime);
+    Pebble.insertTimelinePin(pin, function (resp) {
+        console.log("[PKJS] Timeline pin synced successfully: " + JSON.stringify(resp));
+    }, function (err) {
+        console.log("[PKJS] Timeline pin sync error: " + JSON.stringify(err));
+    });
+}
+
+function removeTimelinePin() {
+    if (!Pebble.deleteTimelinePin) {
+        return;
+    }
+
+    console.log("[PKJS] Deleting timeline pin: " + TIMELINE_PIN_ID);
+    Pebble.deleteTimelinePin(TIMELINE_PIN_ID, function () {
+        console.log("[PKJS] Timeline pin deleted successfully.");
+    }, function (err) {
+        console.log("[PKJS] Timeline pin delete error: " + JSON.stringify(err));
+    });
+}
+
 function handleStopSignal() {
     console.log("[PKJS] StopSignal received from watch! Triggering stop print API...");
-    // TODO: Connect this to Prusa Connect stop print API endpoint when ready
+    removeTimelinePin();
 }
 
 function startPolling() {
