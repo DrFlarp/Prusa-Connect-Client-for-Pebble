@@ -112,3 +112,20 @@ export function drawStopSquare(x, y, color) {
     render.fillRectangle(color, x, y, 2, 16);
     render.fillRectangle(color, x + 14, y, 2, 16);
 }
+
+/**
+ * Render a key icon for setup / authentication screen.
+ */
+export function drawKey(x, y, color) {
+    // Key head (round ring with center hole)
+    render.drawCircle(color, x + 10, y + 10, 9, 0, 360);
+    render.drawCircle(color, x + 10, y + 10, 8, 0, 360);
+    render.drawCircle(COLOR_BLACK, x + 10, y + 10, 4, 0, 360);
+
+    // Key shaft
+    render.fillRectangle(color, x + 18, y + 8, 22, 4);
+
+    // Key teeth
+    render.fillRectangle(color, x + 28, y + 12, 3, 6);
+    render.fillRectangle(color, x + 35, y + 12, 3, 9);
+}

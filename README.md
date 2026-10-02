@@ -47,6 +47,12 @@ A feature-rich Pebble smartwatch companion app for **Prusa Connect**. Monitor 3D
 | :--- | :--- |
 | **Select / Back** | Acknowledges the completion alarm, stops the vibration sequence, and returns to the Main Screen. |
 
+### 5. Setup Required Screen (Missing Keys / Not Configured)
+| Button | Action |
+| :--- | :--- |
+| **Select / Up** | Triggers an immediate retry / check for credentials after configuring settings in the phone app. |
+| **Back** | Cleanly exits the app and returns to the watchface. |
+
 ---
 
 ## 📱 Configuration

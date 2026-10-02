@@ -180,6 +180,17 @@ function fetchPrusaData(callback) {
     ensureAuthenticated(function (err, token) {
         if (err) {
             console.log("[PKJS] Cannot poll: " + err);
+            var isMissingKeys = (!prusaEmail || !prusaPassword) && !refreshToken && !accessToken;
+            if (isMissingKeys) {
+                console.log("[PKJS] Credentials missing. Sending Configured: 0 to watch...");
+                moddableProxy.sendAppMessage({
+                    Configured: 0,
+                    Progress: 0,
+                    FileName: "Setup Required",
+                    PrinterName: "Prusa Connect",
+                    CompletionTime: ""
+                });
+            }
             if (typeof callback === "function") callback();
             return;
         }
@@ -199,8 +210,16 @@ function fetchPrusaData(callback) {
                 refreshAccessToken(function (refErr) {
                     if (!refErr) {
                         fetchPrusaData(callback);
-                    } else if (typeof callback === "function") {
-                        callback();
+                    } else {
+                        console.log("[PKJS] Token refresh failed: " + refErr);
+                        moddableProxy.sendAppMessage({
+                            Configured: 0,
+                            Progress: 0,
+                            FileName: "Auth Expired",
+                            PrinterName: "Prusa Connect",
+                            CompletionTime: ""
+                        });
+                        if (typeof callback === "function") callback();
                     }
                 });
                 return;
@@ -216,6 +235,13 @@ function fetchPrusaData(callback) {
                 var data = JSON.parse(xhr.responseText);
                 if (!data.printers || data.printers.length === 0) {
                     console.log("[PKJS] No printers found on account.");
+                    moddableProxy.sendAppMessage({
+                        Configured: 1,
+                        Progress: 0,
+                        FileName: "No Printers",
+                        PrinterName: "Prusa Connect",
+                        CompletionTime: ""
+                    });
                     if (typeof callback === "function") callback();
                     return;
                 }
@@ -226,7 +252,7 @@ function fetchPrusaData(callback) {
                 var printerName = cachedPrinterName;
 
                 var progress = 0;
-                var fileName = "No file";
+                var fileName = "Idle";
                 var completionTime = "";
 
                 if (printer.job_info) {
@@ -249,6 +275,7 @@ function fetchPrusaData(callback) {
                 console.log("[PKJS] Sending update -> Printer: " + printerName + " (ID: " + cachedPrinterId + "), Progress: " + progress + "%, File: " + fileName + ", Completion: " + completionTime);
 
                 moddableProxy.sendAppMessage({
+                    Configured: 1,
                     Progress: progress,
                     FileName: fileName,
                     PrinterName: printerName,
@@ -419,6 +446,19 @@ Pebble.addEventListener("ready", function (e) {
     console.log("[PKJS] PebbleKit JS ready.");
     loadSettings();
     moddableProxy.readyReceived(e);
+
+    var isMissingKeys = (!prusaEmail || !prusaPassword) && !refreshToken && !accessToken;
+    if (isMissingKeys) {
+        console.log("[PKJS] No credentials configured on ready. Sending Configured: 0 to watch...");
+        moddableProxy.sendAppMessage({
+            Configured: 0,
+            Progress: 0,
+            FileName: "Setup Required",
+            PrinterName: "Prusa Connect",
+            CompletionTime: ""
+        });
+    }
+
     startPolling();
 });
 
@@ -429,6 +469,10 @@ Pebble.addEventListener("appmessage", function (e) {
 
     if (e.payload && e.payload.StopSignal !== undefined) {
         handleStopSignal();
+    }
+    if (e.payload && e.payload.Refresh !== undefined) {
+        console.log("[PKJS] Refresh requested by watch.");
+        fetchPrusaData();
     }
 });
 

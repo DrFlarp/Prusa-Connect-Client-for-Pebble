@@ -31,7 +31,9 @@
       "CompletionTime",
       "StopSignal",
       "Email",
-      "Password"
+      "Password",
+      "Configured",
+      "Refresh"
     ],
     "resources": {
       "media": [

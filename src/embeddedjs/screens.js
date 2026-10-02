@@ -17,7 +17,8 @@ import {
     drawCheckmark,
     drawCross,
     drawStopSquare,
-    drawAlarmClock
+    drawAlarmClock,
+    drawKey
 } from "./icons";
 
 /**
@@ -25,6 +26,7 @@ import {
  */
 export function renderMainScreen(state) {
     const isStopped = state.status.toLowerCase() === "stopped";
+    const isPrinting = state.status.toLowerCase() === "printing";
 
     // Background
     render.fillRectangle(COLOR_BLACK, 0, 0, screen.width, screen.height);
@@ -63,11 +65,11 @@ export function renderMainScreen(state) {
     render.drawText(percentStr, fontBody, COLOR_WHITE, percentX, 114);
 
     // Estimated finish time
-    const finishStr = isStopped ? "Finish: --:--" : `Finish: ${state.finishClock}`;
+    const finishStr = !isPrinting ? "Finish: --:--" : `Finish: ${state.finishClock}`;
     render.drawText(finishStr, fontBody, COLOR_WHITE, 6, 138);
 
-    // Hardware button action cues
-    if (!isStopped) {
+    // Hardware button action cues (only visible during an active print job)
+    if (isPrinting) {
         // SELECT button -> Stop Square
         drawStopSquare(176, 106, COLOR_CORAL);
         // DOWN button -> Alarm clock
@@ -148,4 +150,34 @@ export function renderFinishedScreen(state) {
 
     // Action cue: SELECT = dismiss (checkmark)
     drawCheckmark(176, 106, COLOR_GREEN);
+}
+
+/**
+ * 5. NOT CONFIGURED / MISSING KEYS SCREEN
+ */
+export function renderNotConfiguredScreen(state) {
+    // Black background
+    render.fillRectangle(COLOR_BLACK, 0, 0, screen.width, screen.height);
+
+    // Coral header bar
+    render.fillRectangle(COLOR_CORAL, 0, 0, screen.width, 32);
+    render.drawText("PRUSA CONNECT", fontHeader, COLOR_BLACK, 8, 7);
+
+    // Key icon in coral
+    const keyX = Math.round((screen.width - 40) / 2);
+    drawKey(keyX, 42, COLOR_CORAL);
+
+    // Setup title
+    const titleText = "Setup Required";
+    const titleW = render.getTextWidth(titleText, fontTitle);
+    const titleX = Math.max(6, Math.round((screen.width - titleW) / 2));
+    render.drawText(titleText, fontTitle, COLOR_WHITE, titleX, 74);
+
+    // Setup instructions
+    render.drawText("Open Pebble app on", fontSmall, COLOR_WHITE, 12, 108);
+    render.drawText("phone, go to Settings,", fontSmall, COLOR_WHITE, 12, 128);
+    render.drawText("and enter your Prusa", fontSmall, COLOR_WHITE, 12, 148);
+    render.drawText("Account credentials.", fontSmall, COLOR_WHITE, 12, 168);
+
+    render.drawText("Press SELECT to retry", fontSmall, COLOR_GRAY, 12, 198);
 }

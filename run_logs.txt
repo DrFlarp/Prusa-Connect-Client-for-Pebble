@@ -1,0 +1,15 @@
+[15:24:04] ocess_manager.c:487> Heap Usage for App <Prusa Conn: Total Size <122576B> Used <40248B> Still allocated <0B>
+[15:24:04] moddable.c:94> evaluating creation record
+[15:24:04] xsHost.c:141> instruments key: Pixels drawn,Frames drawn,Timers,Files,Poco display list used,Piu comm
+[15:24:04] xsHost.c:141> d List used,App bytes free,Chunk used,Chunk available,Slot used,Slot available,Stack us
+[15:24:04] xsHost.c:141> ,Stack available,Garbage collections,Keys used,Modules loaded,Parser used,Floating Poin
+[15:24:04] xsHost.c:141> Promises settled
+[15:24:04] xsHost.c:141> Found mod "pebble.moddable.tech"
+[15:24:04] xsHost.c:141> instruments: 0,0,1,0,0,0,85312,3168,16384,7680,16368,1824,8192,0,100,0,0,0,0
+[15:24:04] xsHost.c:141> # Slot allocation: failed in fixed size heap
+[15:24:04] xsPlatform.c:124> fxAbort memory full: 
+[15:24:04] pkjs> ./~/@moddable/pebbleproxy/proxy.js:21:0 @moddable/proxy launched
+[15:24:04] pkjs> ./src/pkjs/index.js:446:0 [PKJS] PebbleKit JS ready.
+[15:24:04] pkjs> ./src/pkjs/index.js:452:0 [PKJS] No credentials configured on ready. Sending Configured: 0 to watch...
+[15:24:04] pkjs> ./src/pkjs/index.js:182:0 [PKJS] Cannot poll: Not configured. Please enter your Prusa Account credentials in the phone app.
+[15:24:04] pkjs> ./src/pkjs/index.js:185:0 [PKJS] Credentials missing. Sending Configured: 0 to watch...

@@ -8,13 +8,15 @@ import {
     SCREEN_STOP_CONFIRM,
     SCREEN_REMINDER,
     SCREEN_FINISHED,
+    SCREEN_NOT_CONFIGURED,
     printerState
 } from "./state";
 import {
     renderMainScreen,
     renderStopConfirmScreen,
     renderReminderScreen,
-    renderFinishedScreen
+    renderFinishedScreen,
+    renderNotConfiguredScreen
 } from "./screens";
 import PrusaConnect from "./prusa-api";
 
@@ -100,8 +102,16 @@ function scheduleReminder(completionTime) {
 // Application Controller & State
 // ---------------------------------------------------------------------------
 
-// Check if app was launched by a wakeup event
-let initialScreen = SCREEN_MAIN;
+const STORAGE_KEY_CONFIGURED = "prusa_is_configured";
+let previouslyConfigured = false;
+try {
+    if (typeof localStorage !== "undefined" && localStorage && localStorage.getItem) {
+        previouslyConfigured = (localStorage.getItem(STORAGE_KEY_CONFIGURED) === "1");
+    }
+} catch (e) {}
+
+// Check if app was launched by a wakeup event or if credentials need configuration
+let initialScreen = previouslyConfigured ? SCREEN_MAIN : SCREEN_NOT_CONFIGURED;
 try {
     if (typeof watch !== "undefined" && watch.wake) {
         console.log(`App launched by WakeUp id=${watch.wake.id}, cookie=${watch.wake.cookie}`);
@@ -155,15 +165,18 @@ function drawCurrentScreen() {
         case SCREEN_FINISHED:
             renderFinishedScreen(printerState);
             break;
+        case SCREEN_NOT_CONFIGURED:
+            renderNotConfiguredScreen(printerState);
+            break;
     }
     render.end();
 }
 
 /**
  * Configure hardware buttons dynamically based on active screen.
- * On SCREEN_MAIN, "back" is omitted so the Pebble OS default action
- * (pop window and close app) runs. On confirmation screens, "back"
- * is captured to decline and return to the main screen.
+ * On SCREEN_MAIN and SCREEN_NOT_CONFIGURED, "back" is omitted so the Pebble OS
+ * default action (pop window and close app) runs. On confirmation screens,
+ * "back" is captured to decline and return to the main screen.
  */
 function setupButtonsForScreen(screenId) {
     if (currentButtonHandler) {
@@ -176,13 +189,29 @@ function setupButtonsForScreen(screenId) {
             types: ["up", "down", "select"],
             single: true,
             onPush(pushed, button) {
-                const isStopped = printerState.status.toLowerCase() === "stopped";
-                if (button === "select" && !isStopped) {
-                    // Navigate to Stop Print confirmation
-                    setScreen(SCREEN_STOP_CONFIRM);
-                } else if (button === "down" && !isStopped) {
-                    // Navigate to Set Reminder
+                const isPrinting = printerState.status.toLowerCase() === "printing";
+                if (button === "select") {
+                    if (isPrinting) {
+                        setScreen(SCREEN_STOP_CONFIRM);
+                    } else {
+                        prusa.requestRefresh();
+                    }
+                } else if (button === "down" && isPrinting) {
                     setScreen(SCREEN_REMINDER);
+                } else if (button === "up") {
+                    prusa.requestRefresh();
+                }
+            }
+        });
+    } else if (screenId === SCREEN_NOT_CONFIGURED) {
+        // Allow back to exit cleanly to watchface; select/up triggers refresh
+        currentButtonHandler = new PebbleButton({
+            types: ["up", "down", "select"],
+            single: true,
+            onPush(pushed, button) {
+                if (button === "select" || button === "up") {
+                    try { Vibes.shortPulse(); } catch {}
+                    prusa.requestRefresh();
                 }
             }
         });
@@ -246,6 +275,23 @@ function setScreen(newScreen) {
  * Handle incoming telemetry updates from Prusa Connect via PKJS.
  */
 prusa.addEventListener((state) => {
+    if (state.configured !== undefined) {
+        if (state.configured === 0) {
+            printerState.isConfigured = false;
+            try { localStorage.setItem(STORAGE_KEY_CONFIGURED, "0"); } catch {}
+            if (currentScreen !== SCREEN_NOT_CONFIGURED) {
+                setScreen(SCREEN_NOT_CONFIGURED);
+            }
+            return;
+        } else if (state.configured === 1) {
+            printerState.isConfigured = true;
+            try { localStorage.setItem(STORAGE_KEY_CONFIGURED, "1"); } catch {}
+            if (currentScreen === SCREEN_NOT_CONFIGURED) {
+                setScreen(SCREEN_MAIN);
+            }
+        }
+    }
+
     printerState.printerName = state.printerName || printerState.printerName;
     printerState.fileName = state.fileName || printerState.fileName;
     printerState.progress = (state.progress !== undefined) ? state.progress : printerState.progress;
@@ -253,21 +299,25 @@ prusa.addEventListener((state) => {
 
     if (state.completionTime) {
         printerState.finishClock = PrusaConnect.formatCompletionClock(state.completionTime);
+    } else {
+        printerState.finishClock = "--:--";
     }
 
     if (state.fileName === "Print Stopped" || state.fileName === "Stopped") {
         printerState.status = "Stopped";
         cancelReminder();
         reminderActive = false;
-    }
-
-    if (printerState.progress >= 100) {
+    } else if (printerState.progress > 0 && printerState.progress < 100) {
+        printerState.status = "Printing";
+    } else if (printerState.progress >= 100) {
         printerState.status = "Finished";
         if (currentScreen === SCREEN_MAIN) {
             try { Vibes.doublePulse(); } catch {}
             setScreen(SCREEN_FINISHED);
             return;
         }
+    } else {
+        printerState.status = "Idle";
     }
 
     drawCurrentScreen();

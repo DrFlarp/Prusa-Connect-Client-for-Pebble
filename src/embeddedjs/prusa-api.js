@@ -17,7 +17,7 @@ class PrusaConnect {
 
     constructor() {
         this.#message = new Message({
-            keys: ["Progress", "FileName", "PrinterName", "CompletionTime", "StopSignal"],
+            keys: ["Progress", "FileName", "PrinterName", "CompletionTime", "StopSignal", "Configured", "Refresh"],
             target: this,
             onReadable() {
                 const target = this.target;
@@ -39,6 +39,10 @@ class PrusaConnect {
                 }
                 if (msg.has("CompletionTime")) {
                     target.#state.completionTime = msg.get("CompletionTime");
+                    updated = true;
+                }
+                if (msg.has("Configured")) {
+                    target.#state.configured = msg.get("Configured");
                     updated = true;
                 }
 
@@ -77,6 +81,18 @@ class PrusaConnect {
     sendStopSignal() {
         console.log("Sending StopSignal to PKJS...");
         this.#message.write(new Map([["StopSignal", 1]]));
+    }
+
+    /**
+     * Request an immediate status refresh from PKJS.
+     */
+    requestRefresh() {
+        console.log("Sending Refresh signal to PKJS...");
+        try {
+            this.#message.write(new Map([["Refresh", 1]]));
+        } catch (e) {
+            console.log("Error sending Refresh: " + e);
+        }
     }
 
     /**
