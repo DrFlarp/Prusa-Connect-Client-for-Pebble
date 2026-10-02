@@ -3,101 +3,277 @@ var Clay = require("@rebble/clay");
 var clayConfig = require("./config");
 var clay = new Clay(clayConfig, null, { autoHandleEvents: false });
 
-var API_KEY = "eyJhbGciOiJSUzI1NiIsImtpZCI6IkhTSU53OXQzalhZd0lGaUcxNWVleW1BNlJscFFwVW5veTFrOG0wTW4yM0EiLCJ0eXAiOiJKV1QifQ.eyJqdGkiOiI3ODkwYWU2OWMwNjA0NGEzYTFkOGJiODM5MGFkMzM1YyIsInN1YiI6IjE5NTk3NjQiLCJleHAiOjE3OTA5NDI1NTguMDg5OTgxLCJzaWQiOiI3MDg4MGJiZC03MjgyLTRkNmEtYmRkMC01ZDlhODdhNDg3NWMiLCJhcHAiOiJjb25uZWN0IiwidHlwZSI6ImFjY2VzcyIsInNjb3BlIjoiYmFzaWNfaW5mbyB1c2VyX29wZXJhdGlvbnMgZW1haWxfbGlzdHMgb3BlbmlkIGNvbm5lY3QiLCJjb25uZWN0X2lkIjoiNjg2MjUifQ.sK_UzqBSmDQXveEld8ouMbzxhpWjAbyQ50DA5k_d_dG9YcHmaBOLMKL9kw6emd3aFct-yS75FExFZx3dfh-CM843E3SlPVEe-_fx89m34pS9Y2lOft8Z98IrKOc9Y7c2P5WlQO5SHRxBmwbl5_V2P0888-PwNeXQ3N9eWl3e_H6MI9c1EDAqYHQyMQaoCui9BZSLS4kePC8e7BDIt65t2SiFdY21hG8cZCLUYxJ3UiPYVrjwQP98AI-puhBkIf_txwLJpcWfvVfAfFPduIoDCt7FMd_RJPhhChZIF3xE2uoh4k99kmpBTIERFEt1PFI3BbQVVgcUFxjvYRUFEMxG0w"
-try {
-    var storedSettings = JSON.parse(localStorage.getItem("clay-settings")) || {};
-    if (storedSettings.ApiKey) {
-        API_KEY = storedSettings.ApiKey;
-        console.log("[PKJS] Loaded API key from stored Clay settings.");
-    }
-} catch (e) {
-    console.log("[PKJS] Error reading stored settings: " + e);
-}
-
+var PRUSA_TOKEN_URL = "https://account.prusa3d.com/o/token/";
+var PRUSA_CLIENT_ID = "MRHTlZhZqkNrrQ6FUPtjyusAz8nc59ErHXP8XkS4";
 var PRUSA_API_URL = "https://connect.prusa3d.com/app/printers";
 var POLL_INTERVAL_MS = 30000; // Poll every 30 seconds
 
-var pollTimer = null;
+var prusaEmail = "";
+var prusaPassword = "";
+var accessToken = "";
+var refreshToken = "";
+var tokenExpiresAt = 0;
 
+var isAuthenticating = false;
+var authQueue = [];
+
+var pollTimer = null;
 var cachedPrinterId = null;
 var cachedPrinterName = null;
 
-function fetchPrusaData(callback) {
-    console.log("[PKJS] Polling Prusa Connect...");
+function loadSettings() {
+    try {
+        var stored = JSON.parse(localStorage.getItem("clay-settings")) || {};
+        prusaEmail = stored.Email ? (stored.Email.value || stored.Email) : "";
+        prusaPassword = stored.Password ? (stored.Password.value || stored.Password) : "";
+        accessToken = stored.AccessToken || "";
+        refreshToken = stored.RefreshToken || "";
+        tokenExpiresAt = stored.TokenExpiresAt || 0;
+
+        if (accessToken) {
+            console.log("[PKJS] Restored access token from storage. Expires at: " + new Date(tokenExpiresAt).toLocaleTimeString());
+        }
+    } catch (e) {
+        console.log("[PKJS] Error reading stored settings: " + e);
+    }
+}
+
+function saveTokens(access, refresh, expiresIn) {
+    accessToken = access;
+    if (refresh) {
+        refreshToken = refresh;
+    }
+    // Set expiry 2 minutes before actual expiration
+    tokenExpiresAt = Date.now() + ((expiresIn || 7200) - 120) * 1000;
+
+    try {
+        var stored = JSON.parse(localStorage.getItem("clay-settings")) || {};
+        stored.AccessToken = accessToken;
+        stored.RefreshToken = refreshToken;
+        stored.TokenExpiresAt = tokenExpiresAt;
+        localStorage.setItem("clay-settings", JSON.stringify(stored));
+        console.log("[PKJS] Saved new tokens to storage. Expiry set to " + new Date(tokenExpiresAt).toLocaleTimeString());
+    } catch (e) {
+        console.log("[PKJS] Error saving tokens: " + e);
+    }
+}
+
+function loginWithPassword(email, password, callback) {
+    console.log("[PKJS] Authenticating with Prusa Account (email: " + email + ")...");
     var xhr = new XMLHttpRequest();
-    xhr.open("GET", PRUSA_API_URL, true);
-    xhr.setRequestHeader("Authorization", "Bearer " + API_KEY);
-    xhr.setRequestHeader("Accept", "*/*");
-    xhr.setRequestHeader("User-Agent", "insomnia/13.3.0");
+    xhr.open("POST", PRUSA_TOKEN_URL, true);
+    xhr.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
+    xhr.setRequestHeader("Accept", "application/json");
 
     xhr.onload = function () {
-        if (xhr.status < 200 || xhr.status >= 300) {
-            console.log("[PKJS] HTTP error: " + xhr.status);
+        if (xhr.status >= 200 && xhr.status < 300) {
+            try {
+                var data = JSON.parse(xhr.responseText);
+                console.log("[PKJS] Login successful! Expires in " + data.expires_in + "s");
+                saveTokens(data.access_token, data.refresh_token, data.expires_in);
+                if (typeof callback === "function") callback(null, accessToken);
+            } catch (e) {
+                console.log("[PKJS] JSON parse error on login: " + e);
+                if (typeof callback === "function") callback("Failed to parse login response: " + e);
+            }
+        } else {
+            console.log("[PKJS] Login failed: " + xhr.status + " " + xhr.responseText);
+            if (typeof callback === "function") callback("Login error: " + xhr.status + " (" + xhr.responseText + ")");
+        }
+    };
+
+    xhr.onerror = function () {
+        console.log("[PKJS] Network error during login.");
+        if (typeof callback === "function") callback("Network error during login");
+    };
+
+    var body = "grant_type=password" +
+        "&client_id=" + encodeURIComponent(PRUSA_CLIENT_ID) +
+        "&username=" + encodeURIComponent(email) +
+        "&password=" + encodeURIComponent(password) +
+        "&scope=" + encodeURIComponent("basic_info user_operations email_lists openid connect");
+
+    xhr.send(body);
+}
+
+function refreshAccessToken(callback) {
+    if (!refreshToken) {
+        if (prusaEmail && prusaPassword) {
+            loginWithPassword(prusaEmail, prusaPassword, callback);
+        } else if (typeof callback === "function") {
+            callback("No refresh token or credentials configured.");
+        }
+        return;
+    }
+
+    console.log("[PKJS] Refreshing access token via refresh_token...");
+    var xhr = new XMLHttpRequest();
+    xhr.open("POST", PRUSA_TOKEN_URL, true);
+    xhr.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
+    xhr.setRequestHeader("Accept", "application/json");
+
+    xhr.onload = function () {
+        if (xhr.status >= 200 && xhr.status < 300) {
+            try {
+                var data = JSON.parse(xhr.responseText);
+                console.log("[PKJS] Token refreshed successfully!");
+                saveTokens(data.access_token, data.refresh_token, data.expires_in);
+                if (typeof callback === "function") callback(null, accessToken);
+            } catch (e) {
+                console.log("[PKJS] JSON parse error on refresh: " + e);
+                if (typeof callback === "function") callback("Failed to parse refresh response: " + e);
+            }
+        } else {
+            console.log("[PKJS] Token refresh failed (status " + xhr.status + "). Retrying full password login...");
+            if (prusaEmail && prusaPassword) {
+                loginWithPassword(prusaEmail, prusaPassword, callback);
+            } else if (typeof callback === "function") {
+                callback("Refresh failed and no password available: " + xhr.status);
+            }
+        }
+    };
+
+    xhr.onerror = function () {
+        console.log("[PKJS] Network error during token refresh.");
+        if (typeof callback === "function") callback("Network error during token refresh");
+    };
+
+    var body = "grant_type=refresh_token" +
+        "&client_id=" + encodeURIComponent(PRUSA_CLIENT_ID) +
+        "&refresh_token=" + encodeURIComponent(refreshToken);
+
+    xhr.send(body);
+}
+
+function ensureAuthenticated(callback) {
+    // If we have an access token that hasn't expired yet, use it directly
+    if (accessToken && Date.now() < tokenExpiresAt) {
+        return callback(null, accessToken);
+    }
+
+    // Queue requests if an authentication or refresh is already running
+    authQueue.push(callback);
+    if (isAuthenticating) {
+        return;
+    }
+    isAuthenticating = true;
+
+    function finish(err, token) {
+        isAuthenticating = false;
+        var q = authQueue.slice();
+        authQueue = [];
+        q.forEach(function (cb) {
+            try { cb(err, token); } catch (e) { console.log(e); }
+        });
+    }
+
+    if (refreshToken) {
+        refreshAccessToken(finish);
+    } else if (prusaEmail && prusaPassword) {
+        loginWithPassword(prusaEmail, prusaPassword, finish);
+    } else {
+        finish("Not configured. Please enter your Prusa Account credentials in the phone app.");
+    }
+}
+
+function fetchPrusaData(callback) {
+    ensureAuthenticated(function (err, token) {
+        if (err) {
+            console.log("[PKJS] Cannot poll: " + err);
             if (typeof callback === "function") callback();
             return;
         }
 
-        try {
-            var data = JSON.parse(xhr.responseText);
-            if (!data.printers || data.printers.length === 0) {
-                console.log("[PKJS] No printers found on account.");
+        console.log("[PKJS] Polling Prusa Connect...");
+        var xhr = new XMLHttpRequest();
+        xhr.open("GET", PRUSA_API_URL, true);
+        xhr.setRequestHeader("Authorization", "Bearer " + token);
+        xhr.setRequestHeader("Accept", "*/*");
+        xhr.setRequestHeader("User-Agent", "insomnia/13.3.0");
+
+        xhr.onload = function () {
+            if (xhr.status === 401) {
+                console.log("[PKJS] Token expired (401). Forcing token refresh and retrying...");
+                accessToken = "";
+                tokenExpiresAt = 0;
+                refreshAccessToken(function (refErr) {
+                    if (!refErr) {
+                        fetchPrusaData(callback);
+                    } else if (typeof callback === "function") {
+                        callback();
+                    }
+                });
+                return;
+            }
+
+            if (xhr.status < 200 || xhr.status >= 300) {
+                console.log("[PKJS] HTTP error: " + xhr.status);
                 if (typeof callback === "function") callback();
                 return;
             }
 
-            var printer = data.printers[0];
-            cachedPrinterId = printer.uuid || printer.id || printer.printer_id || "221f29ff-5a46-4410-bb43-ecdbae785068";
-            cachedPrinterName = printer.name || printer.printer_type_name || "Prusa Printer";
-            var printerName = cachedPrinterName;
-
-            var progress = 0;
-            var fileName = "No file";
-            var completionTime = "";
-
-            if (printer.job_info) {
-                progress = Math.round(printer.job_info.progress || 0);
-
-                if (printer.job_info.display_name) {
-                    fileName = printer.job_info.display_name;
-                } else if (printer.job_info.path) {
-                    fileName = printer.job_info.path.split("/").pop();
-                } else {
-                    fileName = "Printing...";
+            try {
+                var data = JSON.parse(xhr.responseText);
+                if (!data.printers || data.printers.length === 0) {
+                    console.log("[PKJS] No printers found on account.");
+                    if (typeof callback === "function") callback();
+                    return;
                 }
 
-                var remainingSecs = printer.job_info.time_remaining || 0;
-                if (remainingSecs > 0) {
-                    completionTime = new Date(Date.now() + remainingSecs * 1000).toISOString();
+                var printer = data.printers[0];
+                cachedPrinterId = printer.uuid || printer.id || printer.printer_id || "221f29ff-5a46-4410-bb43-ecdbae785068";
+                cachedPrinterName = printer.name || printer.printer_type_name || "Prusa Printer";
+                var printerName = cachedPrinterName;
+
+                var progress = 0;
+                var fileName = "No file";
+                var completionTime = "";
+
+                if (printer.job_info) {
+                    progress = Math.round(printer.job_info.progress || 0);
+
+                    if (printer.job_info.display_name) {
+                        fileName = printer.job_info.display_name;
+                    } else if (printer.job_info.path) {
+                        fileName = printer.job_info.path.split("/").pop();
+                    } else {
+                        fileName = "Printing...";
+                    }
+
+                    var remainingSecs = printer.job_info.time_remaining || 0;
+                    if (remainingSecs > 0) {
+                        completionTime = new Date(Date.now() + remainingSecs * 1000).toISOString();
+                    }
                 }
+
+                console.log("[PKJS] Sending update -> Printer: " + printerName + " (ID: " + cachedPrinterId + "), Progress: " + progress + "%, File: " + fileName + ", Completion: " + completionTime);
+
+                moddableProxy.sendAppMessage({
+                    Progress: progress,
+                    FileName: fileName,
+                    PrinterName: printerName,
+                    CompletionTime: completionTime
+                });
+
+                if (completionTime && progress < 100) {
+                    syncTimelinePin(printerName, fileName, progress, completionTime);
+                } else if (progress >= 100) {
+                    removeTimelinePin();
+                }
+            } catch (e) {
+                console.log("[PKJS] JSON parse error: " + e);
             }
 
-            console.log("[PKJS] Sending update -> Printer: " + printerName + " (ID: " + cachedPrinterId + "), Progress: " + progress + "%, File: " + fileName + ", Completion: " + completionTime);
+            if (typeof callback === "function") callback();
+        };
 
-            moddableProxy.sendAppMessage({
-                Progress: progress,
-                FileName: fileName,
-                PrinterName: printerName,
-                CompletionTime: completionTime
-            });
+        xhr.onerror = function () {
+            console.log("[PKJS] Network request failed.");
+            if (typeof callback === "function") callback();
+        };
 
-            if (completionTime && progress < 100) {
-                syncTimelinePin(printerName, fileName, progress, completionTime);
-            } else if (progress >= 100) {
-                removeTimelinePin();
-            }
-        } catch (e) {
-            console.log("[PKJS] JSON parse error: " + e);
-        }
-
-        if (typeof callback === "function") callback();
-    };
-
-    xhr.onerror = function () {
-        console.log("[PKJS] Network request failed.");
-        if (typeof callback === "function") callback();
-    };
-
-    xhr.send();
+        xhr.send();
+    });
 }
 
 var TIMELINE_PIN_ID = "prusa-print-finish";
@@ -170,44 +346,50 @@ function removeTimelinePin() {
  * Endpoint: https://connect.prusa3d.com/app/printers/<printer_id>/commands/sync
  */
 function sendStopPrintCommand(printerId) {
-    var stopUrl = "https://connect.prusa3d.com/app/printers/" + printerId + "/commands/sync";
-    console.log("[PKJS] Sending STOP_PRINT POST request to: " + stopUrl);
-
-    var xhr = new XMLHttpRequest();
-    xhr.open("POST", stopUrl, true);
-    xhr.setRequestHeader("Authorization", "Bearer " + API_KEY);
-    xhr.setRequestHeader("Content-Type", "application/json");
-    xhr.setRequestHeader("Accept", "application/json, */*");
-    xhr.setRequestHeader("User-Agent", "insomnia/13.3.0");
-
-    xhr.onload = function () {
-        console.log("[PKJS] Stop print response status: " + xhr.status + " body: " + xhr.responseText);
-        if (xhr.status >= 200 && xhr.status < 300) {
-            console.log("[PKJS] Stop print command succeeded!");
-            removeTimelinePin();
-            // Update watch telemetry to stopped
-            moddableProxy.sendAppMessage({
-                Progress: 0,
-                FileName: "Print Stopped",
-                PrinterName: cachedPrinterName || "Prusa Printer",
-                CompletionTime: ""
-            });
-            setTimeout(fetchPrusaData, 2000);
-        } else {
-            console.log("[PKJS] Stop print request failed with status: " + xhr.status);
+    ensureAuthenticated(function (err, token) {
+        if (err) {
+            console.log("[PKJS] Cannot stop print, auth failed: " + err);
+            return;
         }
-    };
 
-    xhr.onerror = function () {
-        console.log("[PKJS] Stop print network request failed.");
-    };
+        var stopUrl = "https://connect.prusa3d.com/app/printers/" + printerId + "/commands/sync";
+        console.log("[PKJS] Sending STOP_PRINT POST request to: " + stopUrl);
 
-    var payload = JSON.stringify({
-        command: "STOP_PRINT",
-        kwargs: {}
+        var xhr = new XMLHttpRequest();
+        xhr.open("POST", stopUrl, true);
+        xhr.setRequestHeader("Authorization", "Bearer " + token);
+        xhr.setRequestHeader("Content-Type", "application/json");
+        xhr.setRequestHeader("Accept", "application/json, */*");
+        xhr.setRequestHeader("User-Agent", "insomnia/13.3.0");
+
+        xhr.onload = function () {
+            console.log("[PKJS] Stop print response status: " + xhr.status + " body: " + xhr.responseText);
+            if (xhr.status >= 200 && xhr.status < 300) {
+                console.log("[PKJS] Stop print command succeeded!");
+                removeTimelinePin();
+                moddableProxy.sendAppMessage({
+                    Progress: 0,
+                    FileName: "Print Stopped",
+                    PrinterName: cachedPrinterName || "Prusa Printer",
+                    CompletionTime: ""
+                });
+                setTimeout(fetchPrusaData, 2000);
+            } else {
+                console.log("[PKJS] Stop print request failed with status: " + xhr.status);
+            }
+        };
+
+        xhr.onerror = function () {
+            console.log("[PKJS] Stop print network request failed.");
+        };
+
+        var payload = JSON.stringify({
+            command: "STOP_PRINT",
+            kwargs: {}
+        });
+
+        xhr.send(payload);
     });
-
-    xhr.send(payload);
 }
 
 function handleStopSignal() {
@@ -235,6 +417,7 @@ function startPolling() {
 
 Pebble.addEventListener("ready", function (e) {
     console.log("[PKJS] PebbleKit JS ready.");
+    loadSettings();
     moddableProxy.readyReceived(e);
     startPolling();
 });
@@ -251,7 +434,8 @@ Pebble.addEventListener("appmessage", function (e) {
 
 Pebble.addEventListener("showConfiguration", function (e) {
     console.log("[PKJS] Showing Clay configuration page...");
-    clay.setSettings("ApiKey", API_KEY);
+    clay.setSettings("Email", prusaEmail);
+    clay.setSettings("Password", prusaPassword);
     Pebble.openURL(clay.generateUrl());
 });
 
@@ -263,14 +447,33 @@ Pebble.addEventListener("webviewclosed", function (e) {
 
     try {
         var settings = clay.getSettings(e.response, false);
-        console.log("[PKJS] Clay settings parsed: " + JSON.stringify(settings));
-        if (settings && settings.ApiKey) {
-            var newKey = (typeof settings.ApiKey === "object") ? settings.ApiKey.value : settings.ApiKey;
-            if (newKey && typeof newKey === "string" && newKey.trim() !== "") {
-                API_KEY = newKey.trim();
-                console.log("[PKJS] Updated API_KEY from settings page. Polling Prusa Connect immediately...");
-                fetchPrusaData();
-            }
+        console.log("[PKJS] Clay settings parsed.");
+        var newEmail = settings.Email ? (settings.Email.value || settings.Email) : "";
+        var newPassword = settings.Password ? (settings.Password.value || settings.Password) : "";
+
+        if (newEmail && newPassword) {
+            prusaEmail = newEmail.trim();
+            prusaPassword = newPassword;
+
+            // Persist credentials
+            var stored = JSON.parse(localStorage.getItem("clay-settings")) || {};
+            stored.Email = prusaEmail;
+            stored.Password = prusaPassword;
+            // Invalidate old tokens
+            stored.AccessToken = "";
+            stored.RefreshToken = "";
+            stored.TokenExpiresAt = 0;
+            accessToken = "";
+            refreshToken = "";
+            tokenExpiresAt = 0;
+            localStorage.setItem("clay-settings", JSON.stringify(stored));
+
+            console.log("[PKJS] Credentials saved. Authenticating immediately...");
+            loginWithPassword(prusaEmail, prusaPassword, function (err) {
+                if (!err) {
+                    fetchPrusaData();
+                }
+            });
         }
     } catch (err) {
         console.log("[PKJS] Error parsing webviewclosed response: " + err);

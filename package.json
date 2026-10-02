@@ -28,7 +28,8 @@
       "PrinterName",
       "CompletionTime",
       "StopSignal",
-      "ApiKey"
+      "Email",
+      "Password"
     ],
     "resources": {
       "media": []

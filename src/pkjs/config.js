@@ -1,30 +1,40 @@
 module.exports = [
   {
     "type": "heading",
-    "defaultValue": "Prusa Connect Settings"
+    "defaultValue": "Prusa Connect Account"
   },
   {
     "type": "section",
     "items": [
       {
         "type": "heading",
-        "defaultValue": "Authentication"
+        "defaultValue": "Login Credentials"
       },
       {
         "type": "input",
-        "messageKey": "ApiKey",
+        "messageKey": "Email",
         "defaultValue": "",
-        "label": "API Key / Bearer Token",
-        "description": "Enter your Prusa Connect Bearer token from connect.prusa3d.com",
+        "label": "Prusa Account Email",
         "attributes": {
-          "placeholder": "eyJhbGciOi...",
-          "type": "text"
+          "placeholder": "user@example.com",
+          "type": "email"
+        }
+      },
+      {
+        "type": "input",
+        "messageKey": "Password",
+        "defaultValue": "",
+        "label": "Prusa Account Password",
+        "description": "Used to automatically authenticate and refresh tokens with Prusa Connect.",
+        "attributes": {
+          "placeholder": "Password",
+          "type": "password"
         }
       }
     ]
   },
   {
     "type": "submit",
-    "defaultValue": "Save Settings"
+    "defaultValue": "Log In & Save"
   }
 ];
