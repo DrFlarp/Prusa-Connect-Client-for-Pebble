@@ -152,3 +152,7 @@ Pull requests, bug reports, and suggestions are very welcome! If you notice some
 ## License
 
 MIT License. See project files for details.
+
+## Legal Notice
+
+This project is not affiliated, authorized, endorsed by, or in any way officially connected with Prusa Research or any of its affiliates.
