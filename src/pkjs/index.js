@@ -172,12 +172,13 @@ function fetchPrusaData(callback) {
                 cachedPrinterName = printer.name || printer.printer_type_name || "Prusa Printer";
                 var printerName = cachedPrinterName;
 
-                var printerStateRaw = (printer.state || printer.printer_state || "").toUpperCase();
+                var printerStateRaw = (printer.state || printer.printer_state || printer.status || "").toUpperCase();
                 var jobStateRaw = (printer.job_info && (printer.job_info.state || printer.job_info.status) || "").toUpperCase();
 
                 var isStopped = (printerStateRaw === "STOPPED" || printerStateRaw === "CANCELLED" || printerStateRaw === "ABORTED" ||
                                  jobStateRaw === "STOPPED" || jobStateRaw === "CANCELLED" || jobStateRaw === "ABORTED");
-                var isPaused = (printerStateRaw === "PAUSED" || jobStateRaw === "PAUSED");
+                var isPaused = (printerStateRaw === "PAUSED" || printerStateRaw === "PAUSE" || printerStateRaw === "ATTENTION" ||
+                                jobStateRaw === "PAUSED" || jobStateRaw === "PAUSE" || jobStateRaw === "ATTENTION");
 
                 var progress = 0;
                 var fileName = "Idle";
@@ -255,19 +256,13 @@ function handleStopSignal() {
         var printerId = cachedPrinterId || "221f29ff-5a46-4410-bb43-ecdbae785068";
         api.sendStopPrint(token, printerId, function (stopErr) {
             if (!stopErr) {
-                console.log("[PKJS] Stop print succeeded!");
-                sendToWatch({
-                    Configured: 1,
-                    Progress: cachedProgress || 0,
-                    FileName: cachedFileName || "Print Stopped",
-                    PrinterName: cachedPrinterName || "Prusa Printer",
-                    CompletionTime: "",
-                    Status: "Stopped"
-                });
-                setTimeout(fetchPrusaData, 2000);
+                console.log("[PKJS] Stop print succeeded! Refetching printer state immediately...");
             } else {
                 console.log("[PKJS] Stop print request failed: " + JSON.stringify(stopErr));
             }
+            fetchPrusaData();
+            setTimeout(fetchPrusaData, 2000);
+            setTimeout(fetchPrusaData, 5000);
         });
     });
 }
@@ -283,19 +278,13 @@ function handlePauseSignal() {
         var printerId = cachedPrinterId || "221f29ff-5a46-4410-bb43-ecdbae785068";
         api.sendPausePrint(token, printerId, function (pauseErr) {
             if (!pauseErr) {
-                console.log("[PKJS] Pause print succeeded!");
-                sendToWatch({
-                    Configured: 1,
-                    Progress: cachedProgress || 0,
-                    FileName: cachedFileName || "Printing...",
-                    PrinterName: cachedPrinterName || "Prusa Printer",
-                    CompletionTime: "",
-                    Status: "Paused"
-                });
-                setTimeout(fetchPrusaData, 2000);
+                console.log("[PKJS] Pause print succeeded! Refetching printer state immediately...");
             } else {
                 console.log("[PKJS] Pause print request failed: " + JSON.stringify(pauseErr));
             }
+            fetchPrusaData();
+            setTimeout(fetchPrusaData, 2000);
+            setTimeout(fetchPrusaData, 5000);
         });
     });
 }
@@ -311,19 +300,13 @@ function handleResumeSignal() {
         var printerId = cachedPrinterId || "221f29ff-5a46-4410-bb43-ecdbae785068";
         api.sendResumePrint(token, printerId, function (resumeErr) {
             if (!resumeErr) {
-                console.log("[PKJS] Resume print succeeded!");
-                sendToWatch({
-                    Configured: 1,
-                    Progress: cachedProgress || 0,
-                    FileName: cachedFileName || "Printing...",
-                    PrinterName: cachedPrinterName || "Prusa Printer",
-                    CompletionTime: "",
-                    Status: "Printing"
-                });
-                setTimeout(fetchPrusaData, 2000);
+                console.log("[PKJS] Resume print succeeded! Refetching printer state immediately...");
             } else {
                 console.log("[PKJS] Resume print request failed: " + JSON.stringify(resumeErr));
             }
+            fetchPrusaData();
+            setTimeout(fetchPrusaData, 2000);
+            setTimeout(fetchPrusaData, 5000);
         });
     });
 }
