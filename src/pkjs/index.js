@@ -1,15 +1,13 @@
-var moddableProxy = require("@moddable/pebbleproxy");
 var Clay = require("@rebble/clay");
 var clayConfig = require("./config");
+var auth = require("./prusa-auth");
+var api = require("./prusa-api");
+var timeline = require("./timeline");
+
 var clay = new Clay(clayConfig, null, { autoHandleEvents: false });
 
-var PRUSA_TOKEN_URL = "https://account.prusa3d.com/o/token/";
-var PRUSA_CLIENT_ID = "MRHTlZhZqkNrrQ6FUPtjyusAz8nc59ErHXP8XkS4";
-var PRUSA_API_URL = "https://connect.prusa3d.com/app/printers";
 var POLL_INTERVAL_MS = 30000; // Poll every 30 seconds
 
-var prusaEmail = "";
-var prusaPassword = "";
 var accessToken = "";
 var refreshToken = "";
 var tokenExpiresAt = 0;
@@ -24,12 +22,13 @@ var cachedPrinterName = null;
 function loadSettings() {
     try {
         var stored = JSON.parse(localStorage.getItem("clay-settings")) || {};
-        prusaEmail = stored.Email ? (stored.Email.value || stored.Email) : "";
-        prusaPassword = stored.Password ? (stored.Password.value || stored.Password) : "";
+        refreshToken = stored.RefreshToken ? (stored.RefreshToken.value || stored.RefreshToken) : "";
         accessToken = stored.AccessToken || "";
-        refreshToken = stored.RefreshToken || "";
         tokenExpiresAt = stored.TokenExpiresAt || 0;
 
+        if (refreshToken) {
+            console.log("[PKJS] Loaded refresh token from storage (" + refreshToken.substring(0, 15) + "...)");
+        }
         if (accessToken) {
             console.log("[PKJS] Restored access token from storage. Expires at: " + new Date(tokenExpiresAt).toLocaleTimeString());
         }
@@ -52,106 +51,37 @@ function saveTokens(access, refresh, expiresIn) {
         stored.RefreshToken = refreshToken;
         stored.TokenExpiresAt = tokenExpiresAt;
         localStorage.setItem("clay-settings", JSON.stringify(stored));
-        console.log("[PKJS] Saved new tokens to storage. Expiry set to " + new Date(tokenExpiresAt).toLocaleTimeString());
+        console.log("[PKJS] Saved tokens. Expiry: " + new Date(tokenExpiresAt).toLocaleTimeString());
     } catch (e) {
         console.log("[PKJS] Error saving tokens: " + e);
     }
 }
 
-function loginWithPassword(email, password, callback) {
-    console.log("[PKJS] Authenticating with Prusa Account (email: " + email + ")...");
-    var xhr = new XMLHttpRequest();
-    xhr.open("POST", PRUSA_TOKEN_URL, true);
-    xhr.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
-    xhr.setRequestHeader("Accept", "application/json");
-
-    xhr.onload = function () {
-        if (xhr.status >= 200 && xhr.status < 300) {
-            try {
-                var data = JSON.parse(xhr.responseText);
-                console.log("[PKJS] Login successful! Expires in " + data.expires_in + "s");
-                saveTokens(data.access_token, data.refresh_token, data.expires_in);
-                if (typeof callback === "function") callback(null, accessToken);
-            } catch (e) {
-                console.log("[PKJS] JSON parse error on login: " + e);
-                if (typeof callback === "function") callback("Failed to parse login response: " + e);
-            }
-        } else {
-            console.log("[PKJS] Login failed: " + xhr.status + " " + xhr.responseText);
-            if (typeof callback === "function") callback("Login error: " + xhr.status + " (" + xhr.responseText + ")");
-        }
-    };
-
-    xhr.onerror = function () {
-        console.log("[PKJS] Network error during login.");
-        if (typeof callback === "function") callback("Network error during login");
-    };
-
-    var body = "grant_type=password" +
-        "&client_id=" + encodeURIComponent(PRUSA_CLIENT_ID) +
-        "&username=" + encodeURIComponent(email) +
-        "&password=" + encodeURIComponent(password) +
-        "&scope=" + encodeURIComponent("basic_info user_operations email_lists openid connect");
-
-    xhr.send(body);
-}
-
-function refreshAccessToken(callback) {
-    if (!refreshToken) {
-        if (prusaEmail && prusaPassword) {
-            loginWithPassword(prusaEmail, prusaPassword, callback);
-        } else if (typeof callback === "function") {
-            callback("No refresh token or credentials configured.");
-        }
-        return;
-    }
-
-    console.log("[PKJS] Refreshing access token via refresh_token...");
-    var xhr = new XMLHttpRequest();
-    xhr.open("POST", PRUSA_TOKEN_URL, true);
-    xhr.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
-    xhr.setRequestHeader("Accept", "application/json");
-
-    xhr.onload = function () {
-        if (xhr.status >= 200 && xhr.status < 300) {
-            try {
-                var data = JSON.parse(xhr.responseText);
-                console.log("[PKJS] Token refreshed successfully!");
-                saveTokens(data.access_token, data.refresh_token, data.expires_in);
-                if (typeof callback === "function") callback(null, accessToken);
-            } catch (e) {
-                console.log("[PKJS] JSON parse error on refresh: " + e);
-                if (typeof callback === "function") callback("Failed to parse refresh response: " + e);
-            }
-        } else {
-            console.log("[PKJS] Token refresh failed (status " + xhr.status + "). Retrying full password login...");
-            if (prusaEmail && prusaPassword) {
-                loginWithPassword(prusaEmail, prusaPassword, callback);
-            } else if (typeof callback === "function") {
-                callback("Refresh failed and no password available: " + xhr.status);
-            }
-        }
-    };
-
-    xhr.onerror = function () {
-        console.log("[PKJS] Network error during token refresh.");
-        if (typeof callback === "function") callback("Network error during token refresh");
-    };
-
-    var body = "grant_type=refresh_token" +
-        "&client_id=" + encodeURIComponent(PRUSA_CLIENT_ID) +
-        "&refresh_token=" + encodeURIComponent(refreshToken);
-
-    xhr.send(body);
+function sendToWatch(dict, callback) {
+    console.log("[PKJS] Sending AppMessage to watch: " + JSON.stringify(dict));
+    Pebble.sendAppMessage(dict, function () {
+        console.log("[PKJS] AppMessage delivered to watch successfully.");
+        if (typeof callback === "function") callback(null);
+    }, function (err) {
+        console.log("[PKJS] AppMessage delivery failed: " + JSON.stringify(err) + ", retrying in 1s...");
+        setTimeout(function () {
+            Pebble.sendAppMessage(dict, function () {
+                console.log("[PKJS] AppMessage retry delivered successfully.");
+            }, function (retryErr) {
+                console.log("[PKJS] AppMessage retry failed: " + JSON.stringify(retryErr));
+            });
+        }, 1000);
+        if (typeof callback === "function") callback(err);
+    });
 }
 
 function ensureAuthenticated(callback) {
-    // If we have an access token that hasn't expired yet, use it directly
+    // Return existing token if still valid
     if (accessToken && Date.now() < tokenExpiresAt) {
         return callback(null, accessToken);
     }
 
-    // Queue requests if an authentication or refresh is already running
+    // Queue requests if an authentication attempt is already in flight
     authQueue.push(callback);
     if (isAuthenticating) {
         return;
@@ -168,11 +98,18 @@ function ensureAuthenticated(callback) {
     }
 
     if (refreshToken) {
-        refreshAccessToken(finish);
-    } else if (prusaEmail && prusaPassword) {
-        loginWithPassword(prusaEmail, prusaPassword, finish);
+        auth.refresh(refreshToken, function (err, data) {
+            if (!err && data && data.access_token) {
+                console.log("[PKJS] Token refreshed successfully!");
+                saveTokens(data.access_token, data.refresh_token, data.expires_in);
+                finish(null, data.access_token);
+            } else {
+                console.log("[PKJS] Token refresh failed: " + err);
+                finish("Token refresh failed: " + err);
+            }
+        });
     } else {
-        finish("Not configured. Please enter your Prusa Account credentials in the phone app.");
+        finish("Not configured. Please enter your Prusa refresh token in the phone app.");
     }
 }
 
@@ -180,62 +117,44 @@ function fetchPrusaData(callback) {
     ensureAuthenticated(function (err, token) {
         if (err) {
             console.log("[PKJS] Cannot poll: " + err);
-            var isMissingKeys = (!prusaEmail || !prusaPassword) && !refreshToken && !accessToken;
-            if (isMissingKeys) {
-                console.log("[PKJS] Credentials missing. Sending Configured: 0 to watch...");
-                moddableProxy.sendAppMessage({
-                    Configured: 0,
-                    Progress: 0,
-                    FileName: "Setup Required",
-                    PrinterName: "Prusa Connect",
-                    CompletionTime: ""
-                });
-            }
+            var isMissingToken = !refreshToken && !accessToken;
+            sendToWatch({
+                Configured: 0,
+                Progress: 0,
+                FileName: isMissingToken ? "Setup Required" : "Token Invalid",
+                PrinterName: "Prusa Connect",
+                CompletionTime: ""
+            });
             if (typeof callback === "function") callback();
             return;
         }
 
         console.log("[PKJS] Polling Prusa Connect...");
-        var xhr = new XMLHttpRequest();
-        xhr.open("GET", PRUSA_API_URL, true);
-        xhr.setRequestHeader("Authorization", "Bearer " + token);
-        xhr.setRequestHeader("Accept", "*/*");
-        xhr.setRequestHeader("User-Agent", "insomnia/13.3.0");
+        api.fetchPrinters(token, function (apiErr, data) {
+            if (apiErr) {
+                if (apiErr.status === 401) {
+                    console.log("[PKJS] Token expired (401). Retrying with token refresh...");
+                    accessToken = "";
+                    tokenExpiresAt = 0;
+                    ensureAuthenticated(function (retryErr) {
+                        if (!retryErr) {
+                            fetchPrusaData(callback);
+                        } else {
+                            if (typeof callback === "function") callback();
+                        }
+                    });
+                    return;
+                }
 
-        xhr.onload = function () {
-            if (xhr.status === 401) {
-                console.log("[PKJS] Token expired (401). Forcing token refresh and retrying...");
-                accessToken = "";
-                tokenExpiresAt = 0;
-                refreshAccessToken(function (refErr) {
-                    if (!refErr) {
-                        fetchPrusaData(callback);
-                    } else {
-                        console.log("[PKJS] Token refresh failed: " + refErr);
-                        moddableProxy.sendAppMessage({
-                            Configured: 0,
-                            Progress: 0,
-                            FileName: "Auth Expired",
-                            PrinterName: "Prusa Connect",
-                            CompletionTime: ""
-                        });
-                        if (typeof callback === "function") callback();
-                    }
-                });
-                return;
-            }
-
-            if (xhr.status < 200 || xhr.status >= 300) {
-                console.log("[PKJS] HTTP error: " + xhr.status);
+                console.log("[PKJS] API error: " + (apiErr.error || JSON.stringify(apiErr)));
                 if (typeof callback === "function") callback();
                 return;
             }
 
             try {
-                var data = JSON.parse(xhr.responseText);
                 if (!data.printers || data.printers.length === 0) {
                     console.log("[PKJS] No printers found on account.");
-                    moddableProxy.sendAppMessage({
+                    sendToWatch({
                         Configured: 1,
                         Progress: 0,
                         FileName: "No Printers",
@@ -272,9 +191,9 @@ function fetchPrusaData(callback) {
                     }
                 }
 
-                console.log("[PKJS] Sending update -> Printer: " + printerName + " (ID: " + cachedPrinterId + "), Progress: " + progress + "%, File: " + fileName + ", Completion: " + completionTime);
+                console.log("[PKJS] Update -> Printer: " + printerName + " (" + cachedPrinterId + "), " + progress + "%, File: " + fileName);
 
-                moddableProxy.sendAppMessage({
+                sendToWatch({
                     Configured: 1,
                     Progress: progress,
                     FileName: fileName,
@@ -283,118 +202,34 @@ function fetchPrusaData(callback) {
                 });
 
                 if (completionTime && progress < 100) {
-                    syncTimelinePin(printerName, fileName, progress, completionTime);
+                    timeline.syncTimelinePin(printerName, fileName, progress, completionTime);
                 } else if (progress >= 100) {
-                    removeTimelinePin();
+                    timeline.removeTimelinePin();
                 }
             } catch (e) {
-                console.log("[PKJS] JSON parse error: " + e);
+                console.log("[PKJS] JSON parse/handling error: " + e);
             }
 
             if (typeof callback === "function") callback();
-        };
-
-        xhr.onerror = function () {
-            console.log("[PKJS] Network request failed.");
-            if (typeof callback === "function") callback();
-        };
-
-        xhr.send();
+        });
     });
 }
 
-var TIMELINE_PIN_ID = "prusa-print-finish";
+function handleStopSignal() {
+    console.log("[PKJS] StopSignal received from watch! Initiating stop print API...");
+    timeline.removeTimelinePin();
 
-function syncTimelinePin(printerName, fileName, progress, completionTime) {
-    if (!Pebble.insertTimelinePin) {
-        console.log("[PKJS] Pebble.insertTimelinePin is not supported in this environment.");
-        return;
-    }
-
-    var completionDate = new Date(completionTime);
-    var reminderDate = new Date(completionDate.getTime() - 5 * 60 * 1000);
-    var now = new Date();
-    if (reminderDate <= now) {
-        reminderDate = completionDate;
-    }
-
-    var pin = {
-        id: TIMELINE_PIN_ID,
-        time: completionTime,
-        layout: {
-            type: "genericPin",
-            title: "Print Complete",
-            subtitle: printerName + " (" + progress + "%)",
-            body: "File: " + fileName + "\nPrinter: " + printerName + "\nProgress: " + progress + "%",
-            tinyIcon: "system://images/ALARM_CLOCK"
-        },
-        reminders: [
-            {
-                time: reminderDate.toISOString(),
-                layout: {
-                    type: "genericReminder",
-                    title: "Print Finishes Soon",
-                    locationName: printerName,
-                    tinyIcon: "system://images/ALARM_CLOCK"
-                }
-            }
-        ],
-        actions: [
-            {
-                title: "Open App",
-                type: "openWatchApp"
-            }
-        ]
-    };
-
-    console.log("[PKJS] Inserting timeline pin for " + completionTime);
-    Pebble.insertTimelinePin(pin, function (resp) {
-        console.log("[PKJS] Timeline pin synced successfully: " + JSON.stringify(resp));
-    }, function (err) {
-        console.log("[PKJS] Timeline pin sync error: " + JSON.stringify(err));
-    });
-}
-
-function removeTimelinePin() {
-    if (!Pebble.deleteTimelinePin) {
-        return;
-    }
-
-    console.log("[PKJS] Deleting timeline pin: " + TIMELINE_PIN_ID);
-    Pebble.deleteTimelinePin(TIMELINE_PIN_ID, function () {
-        console.log("[PKJS] Timeline pin deleted successfully.");
-    }, function (err) {
-        console.log("[PKJS] Timeline pin delete error: " + JSON.stringify(err));
-    });
-}
-
-/**
- * Sends a STOP_PRINT command via POST to Prusa Connect API
- * Endpoint: https://connect.prusa3d.com/app/printers/<printer_id>/commands/sync
- */
-function sendStopPrintCommand(printerId) {
     ensureAuthenticated(function (err, token) {
         if (err) {
             console.log("[PKJS] Cannot stop print, auth failed: " + err);
             return;
         }
 
-        var stopUrl = "https://connect.prusa3d.com/app/printers/" + printerId + "/commands/sync";
-        console.log("[PKJS] Sending STOP_PRINT POST request to: " + stopUrl);
-
-        var xhr = new XMLHttpRequest();
-        xhr.open("POST", stopUrl, true);
-        xhr.setRequestHeader("Authorization", "Bearer " + token);
-        xhr.setRequestHeader("Content-Type", "application/json");
-        xhr.setRequestHeader("Accept", "application/json, */*");
-        xhr.setRequestHeader("User-Agent", "insomnia/13.3.0");
-
-        xhr.onload = function () {
-            console.log("[PKJS] Stop print response status: " + xhr.status + " body: " + xhr.responseText);
-            if (xhr.status >= 200 && xhr.status < 300) {
-                console.log("[PKJS] Stop print command succeeded!");
-                removeTimelinePin();
-                moddableProxy.sendAppMessage({
+        var printerId = cachedPrinterId || "221f29ff-5a46-4410-bb43-ecdbae785068";
+        api.sendStopPrint(token, printerId, function (stopErr) {
+            if (!stopErr) {
+                console.log("[PKJS] Stop print succeeded!");
+                sendToWatch({
                     Progress: 0,
                     FileName: "Print Stopped",
                     PrinterName: cachedPrinterName || "Prusa Printer",
@@ -402,36 +237,10 @@ function sendStopPrintCommand(printerId) {
                 });
                 setTimeout(fetchPrusaData, 2000);
             } else {
-                console.log("[PKJS] Stop print request failed with status: " + xhr.status);
+                console.log("[PKJS] Stop print request failed: " + JSON.stringify(stopErr));
             }
-        };
-
-        xhr.onerror = function () {
-            console.log("[PKJS] Stop print network request failed.");
-        };
-
-        var payload = JSON.stringify({
-            command: "STOP_PRINT",
-            kwargs: {}
         });
-
-        xhr.send(payload);
     });
-}
-
-function handleStopSignal() {
-    console.log("[PKJS] StopSignal received from watch! Initiating stop print API...");
-    removeTimelinePin();
-
-    if (cachedPrinterId) {
-        sendStopPrintCommand(cachedPrinterId);
-    } else {
-        console.log("[PKJS] Printer ID not yet cached, fetching printers first...");
-        fetchPrusaData(function () {
-            var printerId = cachedPrinterId || "221f29ff-5a46-4410-bb43-ecdbae785068";
-            sendStopPrintCommand(printerId);
-        });
-    }
 }
 
 function startPolling() {
@@ -445,12 +254,11 @@ function startPolling() {
 Pebble.addEventListener("ready", function (e) {
     console.log("[PKJS] PebbleKit JS ready.");
     loadSettings();
-    moddableProxy.readyReceived(e);
 
-    var isMissingKeys = (!prusaEmail || !prusaPassword) && !refreshToken && !accessToken;
-    if (isMissingKeys) {
-        console.log("[PKJS] No credentials configured on ready. Sending Configured: 0 to watch...");
-        moddableProxy.sendAppMessage({
+    var isMissingToken = !refreshToken && !accessToken;
+    if (isMissingToken) {
+        console.log("[PKJS] No refresh token configured. Sending Configured: 0 to watch...");
+        sendToWatch({
             Configured: 0,
             Progress: 0,
             FileName: "Setup Required",
@@ -463,14 +271,16 @@ Pebble.addEventListener("ready", function (e) {
 });
 
 Pebble.addEventListener("appmessage", function (e) {
-    if (moddableProxy.appMessageReceived(e)) {
-        return;
-    }
+    var payload = e.payload || {};
+    console.log("[PKJS] AppMessage received from watch: " + JSON.stringify(payload));
 
-    if (e.payload && e.payload.StopSignal !== undefined) {
+    var isStop = (payload.StopSignal !== undefined) || (payload[10004] !== undefined) || (payload["10004"] !== undefined);
+    var isRefresh = (payload.Refresh !== undefined) || (payload[10006] !== undefined) || (payload["10006"] !== undefined);
+
+    if (isStop) {
         handleStopSignal();
     }
-    if (e.payload && e.payload.Refresh !== undefined) {
+    if (isRefresh) {
         console.log("[PKJS] Refresh requested by watch.");
         fetchPrusaData();
     }
@@ -478,8 +288,7 @@ Pebble.addEventListener("appmessage", function (e) {
 
 Pebble.addEventListener("showConfiguration", function (e) {
     console.log("[PKJS] Showing Clay configuration page...");
-    clay.setSettings("Email", prusaEmail);
-    clay.setSettings("Password", prusaPassword);
+    clay.setSettings("RefreshToken", refreshToken);
     Pebble.openURL(clay.generateUrl());
 });
 
@@ -492,28 +301,22 @@ Pebble.addEventListener("webviewclosed", function (e) {
     try {
         var settings = clay.getSettings(e.response, false);
         console.log("[PKJS] Clay settings parsed.");
-        var newEmail = settings.Email ? (settings.Email.value || settings.Email) : "";
-        var newPassword = settings.Password ? (settings.Password.value || settings.Password) : "";
+        var newRefreshToken = settings.RefreshToken ? (settings.RefreshToken.value || settings.RefreshToken) : "";
 
-        if (newEmail && newPassword) {
-            prusaEmail = newEmail.trim();
-            prusaPassword = newPassword;
+        if (newRefreshToken) {
+            refreshToken = newRefreshToken.trim();
 
-            // Persist credentials
+            // Persist token and invalidate old access token
             var stored = JSON.parse(localStorage.getItem("clay-settings")) || {};
-            stored.Email = prusaEmail;
-            stored.Password = prusaPassword;
-            // Invalidate old tokens
+            stored.RefreshToken = refreshToken;
             stored.AccessToken = "";
-            stored.RefreshToken = "";
             stored.TokenExpiresAt = 0;
             accessToken = "";
-            refreshToken = "";
             tokenExpiresAt = 0;
             localStorage.setItem("clay-settings", JSON.stringify(stored));
 
-            console.log("[PKJS] Credentials saved. Authenticating immediately...");
-            loginWithPassword(prusaEmail, prusaPassword, function (err) {
+            console.log("[PKJS] Refresh token saved. Authenticating immediately...");
+            ensureAuthenticated(function (err) {
                 if (!err) {
                     fetchPrusaData();
                 }

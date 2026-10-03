@@ -1,40 +1,30 @@
 module.exports = [
   {
     "type": "heading",
-    "defaultValue": "Prusa Connect Account"
+    "defaultValue": "Prusa Connect Settings"
   },
   {
     "type": "section",
     "items": [
       {
         "type": "heading",
-        "defaultValue": "Login Credentials"
+        "defaultValue": "Authentication"
       },
       {
         "type": "input",
-        "messageKey": "Email",
+        "messageKey": "RefreshToken",
         "defaultValue": "",
-        "label": "Prusa Account Email",
+        "label": "Prusa Refresh Token",
+        "description": "Paste your Prusa Connect refresh token here. The app automatically refreshes tokens and stays connected continuously. See PRUSA_SETUP_GUIDE.md for instructions.",
         "attributes": {
-          "placeholder": "user@example.com",
-          "type": "email"
-        }
-      },
-      {
-        "type": "input",
-        "messageKey": "Password",
-        "defaultValue": "",
-        "label": "Prusa Account Password",
-        "description": "Used to automatically authenticate and refresh tokens with Prusa Connect.",
-        "attributes": {
-          "placeholder": "Password",
-          "type": "password"
+          "placeholder": "eyJhbGciOiJSUzI1NiIs...",
+          "type": "text"
         }
       }
     ]
   },
   {
     "type": "submit",
-    "defaultValue": "Log In & Save"
+    "defaultValue": "Save & Connect"
   }
 ];

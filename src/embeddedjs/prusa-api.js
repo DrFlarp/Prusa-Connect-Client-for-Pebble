@@ -15,9 +15,12 @@ class PrusaConnect {
         completionTime: ""
     };
 
+    #isWritable = false;
+    #pendingRefresh = false;
+
     constructor() {
         this.#message = new Message({
-            keys: ["Progress", "FileName", "PrinterName", "CompletionTime", "StopSignal", "Configured", "Refresh"],
+            keys: ["Progress", "FileName", "PrinterName", "CompletionTime", "StopSignal", "Configured", "Refresh", "RefreshToken"],
             target: this,
             onReadable() {
                 const target = this.target;
@@ -46,9 +49,22 @@ class PrusaConnect {
                     updated = true;
                 }
 
+                console.log("Watch received message: Configured=" + msg.get("Configured") + " Progress=" + msg.get("Progress") + " File=" + msg.get("FileName"));
                 if (updated) {
                     target.#notifyListeners();
                 }
+            },
+            onWritable() {
+                console.log("Message writable");
+                this.target.#isWritable = true;
+                if (this.target.#pendingRefresh) {
+                    this.target.#pendingRefresh = false;
+                    this.target.requestRefresh();
+                }
+            },
+            onSuspend() {
+                console.log("Message suspended");
+                this.target.#isWritable = false;
             }
         });
     }
@@ -79,14 +95,27 @@ class PrusaConnect {
      * Sends StopSignal to PKJS to initiate stopping the current print
      */
     sendStopSignal() {
+        if (!this.#isWritable) {
+            console.log("Message not writable, cannot send StopSignal");
+            return;
+        }
         console.log("Sending StopSignal to PKJS...");
-        this.#message.write(new Map([["StopSignal", 1]]));
+        try {
+            this.#message.write(new Map([["StopSignal", 1]]));
+        } catch (e) {
+            console.log("Error sending StopSignal: " + e);
+        }
     }
 
     /**
      * Request an immediate status refresh from PKJS.
      */
     requestRefresh() {
+        if (!this.#isWritable) {
+            console.log("Message not writable yet, queuing Refresh signal...");
+            this.#pendingRefresh = true;
+            return;
+        }
         console.log("Sending Refresh signal to PKJS...");
         try {
             this.#message.write(new Map([["Refresh", 1]]));

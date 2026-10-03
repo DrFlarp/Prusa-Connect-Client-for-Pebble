@@ -290,6 +290,12 @@ prusa.addEventListener((state) => {
                 setScreen(SCREEN_MAIN);
             }
         }
+    } else if (state.fileName && state.fileName !== "Setup Required" && state.fileName !== "Token Invalid" && state.fileName !== "Connecting...") {
+        printerState.isConfigured = true;
+        try { localStorage.setItem(STORAGE_KEY_CONFIGURED, "1"); } catch {}
+        if (currentScreen === SCREEN_NOT_CONFIGURED) {
+            setScreen(SCREEN_MAIN);
+        }
     }
 
     printerState.printerName = state.printerName || printerState.printerName;

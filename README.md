@@ -61,10 +61,12 @@ The app uses **Clay** to provide an integrated settings page in the Pebble mobil
 
 1. Open the Pebble mobile app on your phone.
 2. Go to **Apps** > **Prusa Connect** > **Settings**.
-3. Enter your **Prusa Account Email** and **Password**.
-4. Tap **Save**.
+3. Paste your **Prusa Refresh Token**.
+4. Tap **Save & Connect**.
 
-The companion PebbleKit JS component will automatically authenticate with Prusa Account OAuth (`https://account.prusa3d.com/o/token/`), acquire access and refresh tokens, and keep them refreshed in the background.
+For step-by-step instructions on obtaining your token in 15 seconds, see the [Prusa Setup Guide](file:///home/sobol/Pebble-Apps/Prusa-Connect/PRUSA_SETUP_GUIDE.md).
+
+The companion PebbleKit JS component will automatically exchange the refresh token for a live session, acquire printer telemetry, and continuously keep tokens refreshed in the background.
 
 ---
 
