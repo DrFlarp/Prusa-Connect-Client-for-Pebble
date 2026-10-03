@@ -20,7 +20,7 @@ class PrusaConnect {
 
     constructor() {
         this.#message = new Message({
-            keys: ["Progress", "FileName", "PrinterName", "CompletionTime", "StopSignal", "Configured", "Refresh", "RefreshToken", "Status"],
+            keys: ["Progress", "FileName", "PrinterName", "CompletionTime", "StopSignal", "Configured", "Refresh", "RefreshToken", "Status", "PauseSignal", "ResumeSignal"],
             target: this,
             onReadable() {
                 const target = this.target;
@@ -108,6 +108,38 @@ class PrusaConnect {
             this.#message.write(new Map([["StopSignal", 1]]));
         } catch (e) {
             console.log("Error sending StopSignal: " + e);
+        }
+    }
+
+    /**
+     * Sends PauseSignal to PKJS to initiate pausing the current print
+     */
+    sendPauseSignal() {
+        if (!this.#isWritable) {
+            console.log("Message not writable, cannot send PauseSignal");
+            return;
+        }
+        console.log("Sending PauseSignal to PKJS...");
+        try {
+            this.#message.write(new Map([["PauseSignal", 1]]));
+        } catch (e) {
+            console.log("Error sending PauseSignal: " + e);
+        }
+    }
+
+    /**
+     * Sends ResumeSignal to PKJS to initiate resuming the current print
+     */
+    sendResumeSignal() {
+        if (!this.#isWritable) {
+            console.log("Message not writable, cannot send ResumeSignal");
+            return;
+        }
+        console.log("Sending ResumeSignal to PKJS...");
+        try {
+            this.#message.write(new Map([["ResumeSignal", 1]]));
+        } catch (e) {
+            console.log("Error sending ResumeSignal: " + e);
         }
     }
 

@@ -26,23 +26,29 @@ A feature-rich Pebble smartwatch companion app for **Prusa Connect**. Monitor 3D
 | Button | Action |
 | :--- | :--- |
 | **Back** | Cleanly exits the app and returns to the watchface. |
-| **Up** | Opens the **Emergency Stop** confirmation screen (only active during an ongoing print; otherwise refreshes). |
-| **Select** | Triggers an immediate status refresh from Prusa Connect. |
-| **Down** | Opens the **Wake-Up Reminder** confirmation screen. |
+| **Up** | Opens the **Emergency Stop** confirmation screen (active when printing or paused; otherwise refreshes). |
+| **Select (Center)** | **Pause / Resume Print**: Opens the Pause confirmation screen while printing, or the Resume confirmation screen while paused (triggers immediate status refresh when idle/stopped). |
+| **Down** | Opens the **Wake-Up Reminder** screen (shows status if already set, allows toggle/scheduling). |
 
 ### 2. Emergency Stop Confirmation Screen
 | Button | Action |
 | :--- | :--- |
-| **Select** (Checkmark) | **Confirm**: Sends the `STOP_PRINT` command to the printer via Prusa Connect. |
+| **Up** (Checkmark) | **Confirm**: Sends the `STOP_PRINT` command to the printer via Prusa Connect. |
 | **Back / Down** (Cross) | **Cancel**: Declines the prompt and returns safely to the Main Screen. |
 
-### 3. Reminder Confirmation Screen
+### 3. Pause / Resume Confirmation Screens
 | Button | Action |
 | :--- | :--- |
-| **Select** (Checkmark) | **Confirm**: Schedules a Pebble Wake-Up event and Timeline pin for the print finish time. |
-| **Back / Down** (Cross) | **Cancel**: Declines and returns to the Main Screen. |
+| **Up** (Checkmark) | **Confirm**: Sends the `PAUSE_PRINT` (or `RESUME_PRINT`) command to the printer via Prusa Connect. |
+| **Back / Down** (Cross) | **Cancel**: Declines the prompt and returns safely to the Main Screen. |
 
-### 4. Finished Screen (Alarm Triggered)
+### 4. Reminder Screen
+| Button | Action |
+| :--- | :--- |
+| **Up** | **Confirm / Cancel**: Schedules the reminder wakeup if not set, or turns off the active alarm if already set. |
+| **Back / Down** | Returns to the Main Screen preserving the current reminder status. |
+
+### 5. Finished Screen (Alarm Triggered)
 | Button | Action |
 | :--- | :--- |
 | **Select / Back** | Acknowledges the completion alarm, stops the vibration sequence, and returns to the Main Screen. |

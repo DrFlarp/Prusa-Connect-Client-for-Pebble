@@ -5,6 +5,7 @@ import {
     COLOR_WHITE,
     COLOR_GREEN,
     COLOR_GRAY,
+    COLOR_AMBER,
     fontHeader,
     fontTitle,
     fontBody,
@@ -18,6 +19,8 @@ import {
     drawCross,
     drawStopSquare,
     drawAlarmClock,
+    drawPauseBars,
+    drawPlayTriangle,
     drawKey
 } from "./icons";
 
@@ -27,12 +30,14 @@ import {
 export function renderMainScreen(state) {
     const isStopped = state.status.toLowerCase() === "stopped";
     const isPrinting = state.status.toLowerCase() === "printing";
+    const isPaused = state.status.toLowerCase() === "paused";
 
     // Background
     render.fillRectangle(COLOR_BLACK, 0, 0, screen.width, screen.height);
 
-    // Coral header bar with printer name
-    render.fillRectangle(COLOR_CORAL, 0, 0, screen.width, 32);
+    // Header bar with printer name
+    const headerBg = isPaused ? COLOR_AMBER : COLOR_CORAL;
+    render.fillRectangle(headerBg, 0, 0, screen.width, 32);
     render.drawText(state.printerName, fontHeader, COLOR_BLACK, 6, 7);
 
     // File name
@@ -40,7 +45,8 @@ export function renderMainScreen(state) {
     render.drawText(displayFile, fontTitle, COLOR_WHITE, 6, 38);
 
     // Status label
-    render.drawText(`Status: ${state.status}`, fontBody, COLOR_WHITE, 6, 66);
+    const statusColor = isPaused ? COLOR_AMBER : COLOR_WHITE;
+    render.drawText(`Status: ${state.status}`, fontBody, statusColor, 6, 66);
 
     // Progress bar frame
     const barX = 6;
@@ -55,7 +61,8 @@ export function renderMainScreen(state) {
     // Fill progress bar according to percentage
     const fillWidth = Math.max(0, Math.min(barW - 4, Math.round((barW - 4) * (state.progress / 100))));
     if (fillWidth > 0) {
-        render.fillRectangle(COLOR_CORAL, barX + 2, barY + 2, fillWidth, barH - 4);
+        const barFillColor = isPaused ? COLOR_AMBER : COLOR_CORAL;
+        render.fillRectangle(barFillColor, barX + 2, barY + 2, fillWidth, barH - 4);
     }
 
     // Centered percentage text below progress bar
@@ -65,18 +72,25 @@ export function renderMainScreen(state) {
     render.drawText(percentStr, fontBody, COLOR_WHITE, percentX, 114);
 
     // Estimated finish time
-    let finishStr = !isPrinting ? "Finish: --:--" : `Finish: ${state.finishClock}`;
-    if (isPrinting && state.isReminderSet) {
+    let finishStr = (!isPrinting && !isPaused) ? "Finish: --:--" : `Finish: ${state.finishClock}`;
+    if ((isPrinting || isPaused) && state.isReminderSet) {
         finishStr += " (Set)";
     }
     render.drawText(finishStr, fontBody, COLOR_WHITE, 6, 138);
 
     // Hardware button action cues
-    if (isPrinting) {
-        // UP button -> Stop Square (active printing only)
+    if (isPrinting || isPaused) {
+        // UP button -> Stop Square (abort print)
         drawStopSquare(176, 38, COLOR_CORAL);
     }
-    if (isPrinting || isStopped) {
+    if (isPrinting) {
+        // CENTER button -> Pause bars
+        drawPauseBars(176, 106, COLOR_WHITE);
+    } else if (isPaused) {
+        // CENTER button -> Play triangle (resume)
+        drawPlayTriangle(176, 106, COLOR_GREEN);
+    }
+    if (isPrinting || isPaused || isStopped) {
         // DOWN button -> Alarm clock (Green when active/set, White otherwise)
         const clockColor = state.isReminderSet ? COLOR_GREEN : COLOR_WHITE;
         drawAlarmClock(174, 192, clockColor);
@@ -101,6 +115,56 @@ export function renderStopConfirmScreen(state) {
 
     const displayFile = truncateText(state.fileName, fontSmall, 155);
     render.drawText(displayFile, fontSmall, COLOR_WHITE, 8, 140);
+
+    // Action cues: UP = confirm (checkmark), DOWN = cancel (cross)
+    drawCheckmark(176, 38, COLOR_GREEN);
+    drawCross(176, 174, COLOR_WHITE);
+}
+
+/**
+ * 3. PAUSE PRINT CONFIRMATION SCREEN
+ */
+export function renderPauseConfirmScreen(state) {
+    // Black background
+    render.fillRectangle(COLOR_BLACK, 0, 0, screen.width, screen.height);
+
+    // Coral header band
+    render.fillRectangle(COLOR_CORAL, 0, 0, screen.width, 32);
+    render.drawText("PAUSE PRINT?", fontHeader, COLOR_BLACK, 8, 7);
+
+    // 3D Printer Graphic with amber model
+    draw3DPrinter(20, 48, COLOR_AMBER, false);
+
+    // Pause prompt
+    render.drawText("Pause print job?", fontBody, COLOR_WHITE, 8, 114);
+
+    const displayFile = truncateText(state.fileName, fontSmall, 155);
+    render.drawText(displayFile, fontSmall, COLOR_AMBER, 8, 140);
+
+    // Action cues: UP = confirm (checkmark), DOWN = cancel (cross)
+    drawCheckmark(176, 38, COLOR_GREEN);
+    drawCross(176, 174, COLOR_WHITE);
+}
+
+/**
+ * 4. RESUME PRINT CONFIRMATION SCREEN
+ */
+export function renderResumeConfirmScreen(state) {
+    // Black background
+    render.fillRectangle(COLOR_BLACK, 0, 0, screen.width, screen.height);
+
+    // Green header band
+    render.fillRectangle(COLOR_GREEN, 0, 0, screen.width, 32);
+    render.drawText("RESUME PRINT?", fontHeader, COLOR_BLACK, 8, 7);
+
+    // 3D Printer Graphic with green model
+    draw3DPrinter(20, 48, COLOR_GREEN, false);
+
+    // Resume prompt
+    render.drawText("Resume print job?", fontBody, COLOR_WHITE, 8, 114);
+
+    const displayFile = truncateText(state.fileName, fontSmall, 155);
+    render.drawText(displayFile, fontSmall, COLOR_GREEN, 8, 140);
 
     // Action cues: UP = confirm (checkmark), DOWN = cancel (cross)
     drawCheckmark(176, 38, COLOR_GREEN);

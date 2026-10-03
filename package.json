@@ -33,7 +33,9 @@
       "Configured",
       "Refresh",
       "RefreshToken",
-      "Status"
+      "Status",
+      "PauseSignal",
+      "ResumeSignal"
     ],
     "resources": {
       "media": [

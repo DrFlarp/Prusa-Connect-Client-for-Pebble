@@ -129,3 +129,21 @@ export function drawKey(x, y, color) {
     render.fillRectangle(color, x + 28, y + 12, 3, 6);
     render.fillRectangle(color, x + 35, y + 12, 3, 9);
 }
+
+/**
+ * Render pause bars indicator (two vertical bars) for center button cue.
+ */
+export function drawPauseBars(x, y, color) {
+    render.fillRectangle(color, x + 2, y + 1, 4, 14);
+    render.fillRectangle(color, x + 10, y + 1, 4, 14);
+}
+
+/**
+ * Render play triangle indicator (pointing right) for center button cue.
+ */
+export function drawPlayTriangle(x, y, color) {
+    for (let col = 0; col < 12; col++) {
+        const halfH = Math.floor((11 - col) * 7 / 11);
+        render.fillRectangle(color, x + 2 + col, y + 8 - halfH, 1, halfH * 2 + 1);
+    }
+}

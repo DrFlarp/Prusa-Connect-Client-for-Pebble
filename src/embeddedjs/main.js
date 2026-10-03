@@ -9,6 +9,8 @@ import {
     SCREEN_REMINDER,
     SCREEN_FINISHED,
     SCREEN_NOT_CONFIGURED,
+    SCREEN_PAUSE_CONFIRM,
+    SCREEN_RESUME_CONFIRM,
     printerState
 } from "./state";
 import {
@@ -16,7 +18,9 @@ import {
     renderStopConfirmScreen,
     renderReminderScreen,
     renderFinishedScreen,
-    renderNotConfiguredScreen
+    renderNotConfiguredScreen,
+    renderPauseConfirmScreen,
+    renderResumeConfirmScreen
 } from "./screens";
 import PrusaConnect from "./prusa-api";
 
@@ -216,6 +220,12 @@ function drawCurrentScreen() {
         case SCREEN_NOT_CONFIGURED:
             renderNotConfiguredScreen(printerState);
             break;
+        case SCREEN_PAUSE_CONFIRM:
+            renderPauseConfirmScreen(printerState);
+            break;
+        case SCREEN_RESUME_CONFIRM:
+            renderResumeConfirmScreen(printerState);
+            break;
     }
     render.end();
 }
@@ -238,16 +248,23 @@ function setupButtonsForScreen(screenId) {
             single: true,
             onPush(pushed, button) {
                 const isPrinting = printerState.status.toLowerCase() === "printing";
+                const isPaused = printerState.status.toLowerCase() === "paused";
                 const isStopped = printerState.status.toLowerCase() === "stopped";
                 if (button === "up") {
-                    if (isPrinting) {
+                    if (isPrinting || isPaused) {
                         setScreen(SCREEN_STOP_CONFIRM);
                     } else {
                         prusa.requestRefresh();
                     }
                 } else if (button === "select") {
-                    prusa.requestRefresh();
-                } else if (button === "down" && (isPrinting || isStopped)) {
+                    if (isPrinting) {
+                        setScreen(SCREEN_PAUSE_CONFIRM);
+                    } else if (isPaused) {
+                        setScreen(SCREEN_RESUME_CONFIRM);
+                    } else {
+                        prusa.requestRefresh();
+                    }
+                } else if (button === "down" && (isPrinting || isPaused || isStopped)) {
                     setScreen(SCREEN_REMINDER);
                 }
             }
@@ -282,6 +299,36 @@ function setupButtonsForScreen(screenId) {
                             setScreen(SCREEN_MAIN);
                         } else if (button === "down" || button === "back") {
                             // Decline abort print confirmation
+                            setScreen(SCREEN_MAIN);
+                        }
+                        break;
+
+                    case SCREEN_PAUSE_CONFIRM:
+                        if (button === "up") {
+                            // Confirm pause print
+                            console.log("User confirmed pause print.");
+                            prusa.sendPauseSignal();
+                            printerState.status = "Paused";
+                            persistPrinterState();
+                            try { Vibes.shortPulse(); } catch {}
+                            setScreen(SCREEN_MAIN);
+                        } else if (button === "down" || button === "back") {
+                            // Decline pause confirmation
+                            setScreen(SCREEN_MAIN);
+                        }
+                        break;
+
+                    case SCREEN_RESUME_CONFIRM:
+                        if (button === "up") {
+                            // Confirm resume print
+                            console.log("User confirmed resume print.");
+                            prusa.sendResumeSignal();
+                            printerState.status = "Printing";
+                            persistPrinterState();
+                            try { Vibes.shortPulse(); } catch {}
+                            setScreen(SCREEN_MAIN);
+                        } else if (button === "down" || button === "back") {
+                            // Decline resume confirmation
                             setScreen(SCREEN_MAIN);
                         }
                         break;

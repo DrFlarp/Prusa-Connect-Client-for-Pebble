@@ -14,6 +14,7 @@ export const COLOR_WHITE = render.makeColor(255, 255, 255);     // Text & primar
 export const COLOR_GREEN = render.makeColor(85, 255, 85);       // Success & affirmative cues
 export const COLOR_GRAY = render.makeColor(130, 130, 130);      // Subtitle & secondary details
 export const COLOR_DARK_GRAY = render.makeColor(50, 50, 50);    // Contrast details
+export const COLOR_AMBER = render.makeColor(255, 170, 0);        // Warning & paused accent
 
 /**
  * System typography.

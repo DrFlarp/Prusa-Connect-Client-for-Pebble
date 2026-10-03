@@ -6,6 +6,8 @@ export const SCREEN_STOP_CONFIRM = 1;
 export const SCREEN_REMINDER = 2;
 export const SCREEN_FINISHED = 3;
 export const SCREEN_NOT_CONFIGURED = 4;
+export const SCREEN_PAUSE_CONFIRM = 5;
+export const SCREEN_RESUME_CONFIRM = 6;
 
 /**
  * Current printer telemetry and UI state.

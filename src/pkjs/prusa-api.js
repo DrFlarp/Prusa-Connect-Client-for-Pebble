@@ -76,7 +76,79 @@ function sendStopPrint(token, printerId, callback) {
     xhr.send(payload);
 }
 
+/**
+ * Sends a PAUSE_PRINT command to a given printer.
+ */
+function sendPausePrint(token, printerId, callback) {
+    var pauseUrl = PRUSA_API_URL + "/" + printerId + "/commands/sync";
+    console.log("[API] Sending PAUSE_PRINT POST request to: " + pauseUrl);
+
+    var xhr = new XMLHttpRequest();
+    xhr.open("POST", pauseUrl, true);
+    xhr.setRequestHeader("Authorization", "Bearer " + token);
+    xhr.setRequestHeader("Content-Type", "application/json");
+    xhr.setRequestHeader("Accept", "application/json, */*");
+    xhr.setRequestHeader("User-Agent", "insomnia/13.3.0");
+
+    xhr.onload = function () {
+        console.log("[API] Pause print response status: " + xhr.status + " body: " + xhr.responseText);
+        if (xhr.status >= 200 && xhr.status < 300) {
+            callback(null, xhr.responseText);
+        } else {
+            callback({ status: xhr.status, error: "Pause print failed: " + xhr.status });
+        }
+    };
+
+    xhr.onerror = function () {
+        callback({ error: "Pause print network request failed" });
+    };
+
+    var payload = JSON.stringify({
+        command: "PAUSE_PRINT",
+        kwargs: {}
+    });
+
+    xhr.send(payload);
+}
+
+/**
+ * Sends a RESUME_PRINT command to a given printer.
+ */
+function sendResumePrint(token, printerId, callback) {
+    var resumeUrl = PRUSA_API_URL + "/" + printerId + "/commands/sync";
+    console.log("[API] Sending RESUME_PRINT POST request to: " + resumeUrl);
+
+    var xhr = new XMLHttpRequest();
+    xhr.open("POST", resumeUrl, true);
+    xhr.setRequestHeader("Authorization", "Bearer " + token);
+    xhr.setRequestHeader("Content-Type", "application/json");
+    xhr.setRequestHeader("Accept", "application/json, */*");
+    xhr.setRequestHeader("User-Agent", "insomnia/13.3.0");
+
+    xhr.onload = function () {
+        console.log("[API] Resume print response status: " + xhr.status + " body: " + xhr.responseText);
+        if (xhr.status >= 200 && xhr.status < 300) {
+            callback(null, xhr.responseText);
+        } else {
+            callback({ status: xhr.status, error: "Resume print failed: " + xhr.status });
+        }
+    };
+
+    xhr.onerror = function () {
+        callback({ error: "Resume print network request failed" });
+    };
+
+    var payload = JSON.stringify({
+        command: "RESUME_PRINT",
+        kwargs: {}
+    });
+
+    xhr.send(payload);
+}
+
 module.exports = {
     fetchPrinters: fetchPrinters,
-    sendStopPrint: sendStopPrint
+    sendStopPrint: sendStopPrint,
+    sendPausePrint: sendPausePrint,
+    sendResumePrint: sendResumePrint
 };

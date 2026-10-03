@@ -177,6 +177,7 @@ function fetchPrusaData(callback) {
 
                 var isStopped = (printerStateRaw === "STOPPED" || printerStateRaw === "CANCELLED" || printerStateRaw === "ABORTED" ||
                                  jobStateRaw === "STOPPED" || jobStateRaw === "CANCELLED" || jobStateRaw === "ABORTED");
+                var isPaused = (printerStateRaw === "PAUSED" || jobStateRaw === "PAUSED");
 
                 var progress = 0;
                 var fileName = "Idle";
@@ -191,7 +192,7 @@ function fetchPrusaData(callback) {
                     } else if (printer.job_info.path) {
                         fileName = printer.job_info.path.split("/").pop();
                     } else {
-                        fileName = isStopped ? "Stopped" : "Printing...";
+                        fileName = isStopped ? "Stopped" : (isPaused ? "Paused" : "Printing...");
                     }
 
                     var remainingSecs = printer.job_info.time_remaining || 0;
@@ -206,6 +207,8 @@ function fetchPrusaData(callback) {
                     if (fileName === "Idle" || !fileName) {
                         fileName = cachedFileName || "Print Stopped";
                     }
+                } else if (isPaused) {
+                    status = "Paused";
                 } else if (progress >= 100) {
                     status = "Finished";
                 } else if (progress > 0) {
@@ -269,6 +272,62 @@ function handleStopSignal() {
     });
 }
 
+function handlePauseSignal() {
+    console.log("[PKJS] PauseSignal received from watch! Initiating pause print API...");
+    ensureAuthenticated(function (err, token) {
+        if (err) {
+            console.log("[PKJS] Cannot pause print, auth failed: " + err);
+            return;
+        }
+
+        var printerId = cachedPrinterId || "221f29ff-5a46-4410-bb43-ecdbae785068";
+        api.sendPausePrint(token, printerId, function (pauseErr) {
+            if (!pauseErr) {
+                console.log("[PKJS] Pause print succeeded!");
+                sendToWatch({
+                    Configured: 1,
+                    Progress: cachedProgress || 0,
+                    FileName: cachedFileName || "Printing...",
+                    PrinterName: cachedPrinterName || "Prusa Printer",
+                    CompletionTime: "",
+                    Status: "Paused"
+                });
+                setTimeout(fetchPrusaData, 2000);
+            } else {
+                console.log("[PKJS] Pause print request failed: " + JSON.stringify(pauseErr));
+            }
+        });
+    });
+}
+
+function handleResumeSignal() {
+    console.log("[PKJS] ResumeSignal received from watch! Initiating resume print API...");
+    ensureAuthenticated(function (err, token) {
+        if (err) {
+            console.log("[PKJS] Cannot resume print, auth failed: " + err);
+            return;
+        }
+
+        var printerId = cachedPrinterId || "221f29ff-5a46-4410-bb43-ecdbae785068";
+        api.sendResumePrint(token, printerId, function (resumeErr) {
+            if (!resumeErr) {
+                console.log("[PKJS] Resume print succeeded!");
+                sendToWatch({
+                    Configured: 1,
+                    Progress: cachedProgress || 0,
+                    FileName: cachedFileName || "Printing...",
+                    PrinterName: cachedPrinterName || "Prusa Printer",
+                    CompletionTime: "",
+                    Status: "Printing"
+                });
+                setTimeout(fetchPrusaData, 2000);
+            } else {
+                console.log("[PKJS] Resume print request failed: " + JSON.stringify(resumeErr));
+            }
+        });
+    });
+}
+
 function startPolling() {
     if (pollTimer) {
         clearInterval(pollTimer);
@@ -311,10 +370,18 @@ Pebble.addEventListener("appmessage", function (e) {
     console.log("[PKJS] AppMessage received from watch: " + JSON.stringify(payload));
 
     var isStop = (payload.StopSignal !== undefined) || (payload[10004] !== undefined) || (payload["10004"] !== undefined);
+    var isPause = (payload.PauseSignal !== undefined) || (payload[10009] !== undefined) || (payload["10009"] !== undefined);
+    var isResume = (payload.ResumeSignal !== undefined) || (payload[10010] !== undefined) || (payload["10010"] !== undefined);
     var isRefresh = (payload.Refresh !== undefined) || (payload[10006] !== undefined) || (payload["10006"] !== undefined);
 
     if (isStop) {
         handleStopSignal();
+    }
+    if (isPause) {
+        handlePauseSignal();
+    }
+    if (isResume) {
+        handleResumeSignal();
     }
     if (isRefresh) {
         console.log("[PKJS] Refresh requested by watch.");
