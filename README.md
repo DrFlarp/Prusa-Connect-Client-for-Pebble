@@ -80,6 +80,9 @@ This project combines **Pebble Alloy (Moddable XS JavaScript)** running on the w
 ```
 Prusa-Connect/
 ├── package.json               # App metadata, platforms, and messageKeys
+├── scripts/
+│   ├── patch-pebbleproxy.js   # Fixes leading slash bug in @moddable/pebbleproxy
+│   └── generate_menu_icon.py  # Generates 28x28 app menu icon
 ├── src/
 │   ├── embeddedjs/            # Code executed on the Pebble watch (Moddable XS)
 │   │   ├── main.js            # App lifecycle, screen router, button listeners
@@ -96,6 +99,8 @@ Prusa-Connect/
 │       ├── config.js          # Clay configuration screen schema
 │       └── pkce.js            # PKCE cryptographic helper
 ```
+
+> **Note on `@moddable/pebbleproxy`:** A postinstall script (`scripts/patch-pebbleproxy.js`) automatically patches a path-handling bug in the `@moddable/pebbleproxy` dependency whenever dependencies install. It strips redundant leading slashes on request paths to prevent malformed API URLs.
 
 ### Build Requirements
 
