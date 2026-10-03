@@ -177,6 +177,31 @@ try {
         printerState.isReminderSet = true;
     }
 } catch (e) {}
+
+const SCREENSHOT_MODE = false;
+const SCREENSHOT_SCREEN = "MAIN";
+if (SCREENSHOT_MODE) {
+    printerState.printerName = "Original Prusa MK4S";
+    printerState.fileName = "gear_bearing.bgcode";
+    printerState.status = (SCREENSHOT_SCREEN === "PAUSED" || SCREENSHOT_SCREEN === "RESUME") ? "Paused" : "Printing";
+    printerState.progress = 68;
+    printerState.finishClock = "23:45";
+    printerState.isConfigured = true;
+    printerState.isReminderSet = true;
+    reminderActive = true;
+    if (SCREENSHOT_SCREEN === "MAIN" || SCREENSHOT_SCREEN === "PAUSED") {
+        currentScreen = SCREEN_MAIN;
+    } else if (SCREENSHOT_SCREEN === "STOP") {
+        currentScreen = SCREEN_STOP_CONFIRM;
+    } else if (SCREENSHOT_SCREEN === "RESUME") {
+        currentScreen = SCREEN_RESUME_CONFIRM;
+    } else if (SCREENSHOT_SCREEN === "REMINDER") {
+        currentScreen = SCREEN_REMINDER;
+    } else if (SCREENSHOT_SCREEN === "FINISHED") {
+        currentScreen = SCREEN_FINISHED;
+    }
+}
+
 let currentButtonHandler = null;
 
 // Listen for wakeup events while app is open in foreground
@@ -383,6 +408,7 @@ function setScreen(newScreen) {
  * Handle incoming telemetry updates from Prusa Connect via PKJS.
  */
 prusa.addEventListener((state) => {
+    if (SCREENSHOT_MODE) return;
     if (state.configured !== undefined) {
         if (state.configured === 0) {
             printerState.isConfigured = false;

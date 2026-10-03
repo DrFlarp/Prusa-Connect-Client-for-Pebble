@@ -8,7 +8,8 @@ export const render = new Poco(screen);
 /**
  * Color palette matching Pebble Emery / Gabbro 64-color display and reference designs.
  */
-export const COLOR_CORAL = render.makeColor(226, 99, 99);       // Header & accent coral/red
+export const COLOR_ORANGE = render.makeColor(255, 85, 0);       // Header & accent Prusa Orange
+export const COLOR_CORAL = COLOR_ORANGE;                         // Retained alias for backwards compatibility
 export const COLOR_BLACK = render.makeColor(0, 0, 0);           // Background
 export const COLOR_WHITE = render.makeColor(255, 255, 255);     // Text & primary outlines
 export const COLOR_GREEN = render.makeColor(85, 255, 85);       // Success & affirmative cues
