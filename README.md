@@ -26,9 +26,9 @@ A feature-rich Pebble smartwatch companion app for **Prusa Connect**. Monitor 3D
 | Button | Action |
 | :--- | :--- |
 | **Back** | Cleanly exits the app and returns to the watchface. |
-| **Select** | Opens the **Emergency Stop** confirmation screen (only active during an ongoing print). |
-| **Down** | Opens the **Wake-Up Reminder** confirmation screen (only active during an ongoing print). |
-| **Up** | Triggers an immediate status refresh from Prusa Connect. |
+| **Up** | Opens the **Emergency Stop** confirmation screen (only active during an ongoing print; otherwise refreshes). |
+| **Select** | Triggers an immediate status refresh from Prusa Connect. |
+| **Down** | Opens the **Wake-Up Reminder** confirmation screen. |
 
 ### 2. Emergency Stop Confirmation Screen
 | Button | Action |

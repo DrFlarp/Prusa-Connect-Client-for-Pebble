@@ -18,6 +18,8 @@ var authQueue = [];
 var pollTimer = null;
 var cachedPrinterId = null;
 var cachedPrinterName = null;
+var cachedFileName = null;
+var cachedProgress = 0;
 
 function loadSettings() {
     try {
@@ -170,9 +172,16 @@ function fetchPrusaData(callback) {
                 cachedPrinterName = printer.name || printer.printer_type_name || "Prusa Printer";
                 var printerName = cachedPrinterName;
 
+                var printerStateRaw = (printer.state || printer.printer_state || "").toUpperCase();
+                var jobStateRaw = (printer.job_info && (printer.job_info.state || printer.job_info.status) || "").toUpperCase();
+
+                var isStopped = (printerStateRaw === "STOPPED" || printerStateRaw === "CANCELLED" || printerStateRaw === "ABORTED" ||
+                                 jobStateRaw === "STOPPED" || jobStateRaw === "CANCELLED" || jobStateRaw === "ABORTED");
+
                 var progress = 0;
                 var fileName = "Idle";
                 var completionTime = "";
+                var status = "Idle";
 
                 if (printer.job_info) {
                     progress = Math.round(printer.job_info.progress || 0);
@@ -182,30 +191,45 @@ function fetchPrusaData(callback) {
                     } else if (printer.job_info.path) {
                         fileName = printer.job_info.path.split("/").pop();
                     } else {
-                        fileName = "Printing...";
+                        fileName = isStopped ? "Stopped" : "Printing...";
                     }
 
                     var remainingSecs = printer.job_info.time_remaining || 0;
-                    if (remainingSecs > 0) {
+                    if (remainingSecs > 0 && !isStopped) {
                         completionTime = new Date(Date.now() + remainingSecs * 1000).toISOString();
                     }
                 }
 
-                console.log("[PKJS] Update -> Printer: " + printerName + " (" + cachedPrinterId + "), " + progress + "%, File: " + fileName);
+                if (isStopped) {
+                    status = "Stopped";
+                    completionTime = "";
+                    if (fileName === "Idle" || !fileName) {
+                        fileName = cachedFileName || "Print Stopped";
+                    }
+                } else if (progress >= 100) {
+                    status = "Finished";
+                } else if (progress > 0) {
+                    status = "Printing";
+                } else {
+                    status = "Idle";
+                }
+
+                cachedFileName = fileName;
+                cachedProgress = progress;
+
+                console.log("[PKJS] Update -> Printer: " + printerName + " (" + cachedPrinterId + "), " + progress + "%, Status: " + status + ", File: " + fileName);
 
                 sendToWatch({
                     Configured: 1,
                     Progress: progress,
                     FileName: fileName,
                     PrinterName: printerName,
-                    CompletionTime: completionTime
+                    CompletionTime: completionTime,
+                    Status: status
                 });
 
-                if (completionTime && progress < 100) {
-                    timeline.syncTimelinePin(printerName, fileName, progress, completionTime);
-                } else if (progress >= 100) {
-                    timeline.removeTimelinePin();
-                }
+                // Validate timeline pin: delete stale pin if stopped/aborted/finished or if time shifted
+                timeline.validateAndSyncTimelinePin(status, completionTime, printerName, fileName, progress);
             } catch (e) {
                 console.log("[PKJS] JSON parse/handling error: " + e);
             }
@@ -230,10 +254,12 @@ function handleStopSignal() {
             if (!stopErr) {
                 console.log("[PKJS] Stop print succeeded!");
                 sendToWatch({
-                    Progress: 0,
-                    FileName: "Print Stopped",
+                    Configured: 1,
+                    Progress: cachedProgress || 0,
+                    FileName: cachedFileName || "Print Stopped",
                     PrinterName: cachedPrinterName || "Prusa Printer",
-                    CompletionTime: ""
+                    CompletionTime: "",
+                    Status: "Stopped"
                 });
                 setTimeout(fetchPrusaData, 2000);
             } else {
@@ -255,6 +281,15 @@ Pebble.addEventListener("ready", function (e) {
     console.log("[PKJS] PebbleKit JS ready.");
     loadSettings();
 
+    // Check if there is an expired or stale pin on app launch
+    try {
+        var storedPinTime = localStorage.getItem("prusa_timeline_pin_time");
+        if (storedPinTime && new Date(storedPinTime).getTime() < Date.now()) {
+            console.log("[Timeline] Stored pin time has passed on app open. Deleting stale pin...");
+            timeline.removeTimelinePin();
+        }
+    } catch (err) {}
+
     var isMissingToken = !refreshToken && !accessToken;
     if (isMissingToken) {
         console.log("[PKJS] No refresh token configured. Sending Configured: 0 to watch...");
@@ -265,6 +300,7 @@ Pebble.addEventListener("ready", function (e) {
             PrinterName: "Prusa Connect",
             CompletionTime: ""
         });
+        timeline.removeTimelinePin();
     }
 
     startPolling();

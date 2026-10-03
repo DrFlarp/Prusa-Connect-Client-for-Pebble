@@ -56,6 +56,9 @@ function cancelReminder() {
             }
             localStorage.removeItem(STORAGE_KEY_WAKEUP_ID);
         }
+        localStorage.removeItem(STORAGE_KEY_REMINDER);
+        reminderActive = false;
+        printerState.isReminderSet = false;
     } catch (err) {
         console.log("Cancel wakeup error: " + err);
     }
@@ -90,6 +93,9 @@ function scheduleReminder(completionTime) {
         console.log(`Scheduled reminder wakeup id=${id} for ${new Date(targetMs).toISOString()}`);
         if (id !== undefined && id >= 0) {
             localStorage.setItem(STORAGE_KEY_WAKEUP_ID, String(id));
+            localStorage.setItem(STORAGE_KEY_REMINDER, "1");
+            reminderActive = true;
+            printerState.isReminderSet = true;
             return id;
         }
     } catch (err) {
@@ -103,10 +109,44 @@ function scheduleReminder(completionTime) {
 // ---------------------------------------------------------------------------
 
 const STORAGE_KEY_CONFIGURED = "prusa_is_configured";
+const STORAGE_KEY_STATUS = "prusa_last_status";
+const STORAGE_KEY_FILE = "prusa_last_file";
+const STORAGE_KEY_PRINTER = "prusa_last_printer";
+const STORAGE_KEY_PROGRESS = "prusa_last_progress";
+const STORAGE_KEY_REMINDER = "prusa_reminder_active";
+
+function persistPrinterState() {
+    try {
+        if (typeof localStorage !== "undefined" && localStorage && localStorage.setItem) {
+            localStorage.setItem(STORAGE_KEY_STATUS, printerState.status);
+            localStorage.setItem(STORAGE_KEY_FILE, printerState.fileName);
+            localStorage.setItem(STORAGE_KEY_PRINTER, printerState.printerName);
+            localStorage.setItem(STORAGE_KEY_PROGRESS, String(printerState.progress));
+        }
+    } catch (e) {}
+}
+
 let previouslyConfigured = false;
 try {
     if (typeof localStorage !== "undefined" && localStorage && localStorage.getItem) {
         previouslyConfigured = (localStorage.getItem(STORAGE_KEY_CONFIGURED) === "1");
+        const lastStatus = localStorage.getItem(STORAGE_KEY_STATUS);
+        const lastFile = localStorage.getItem(STORAGE_KEY_FILE);
+        const lastPrinter = localStorage.getItem(STORAGE_KEY_PRINTER);
+        const lastProgress = localStorage.getItem(STORAGE_KEY_PROGRESS);
+
+        if (lastStatus) {
+            printerState.status = lastStatus;
+        }
+        if (lastFile) {
+            printerState.fileName = lastFile;
+        }
+        if (lastPrinter) {
+            printerState.printerName = lastPrinter;
+        }
+        if (lastProgress !== null && lastProgress !== undefined) {
+            printerState.progress = parseInt(lastProgress, 10) || 0;
+        }
     }
 } catch (e) {}
 
@@ -125,6 +165,14 @@ try {
 
 let currentScreen = initialScreen;
 let reminderActive = false;
+try {
+    const storedWakeup = localStorage.getItem(STORAGE_KEY_WAKEUP_ID);
+    const storedActive = localStorage.getItem(STORAGE_KEY_REMINDER);
+    if (storedWakeup && storedActive === "1") {
+        reminderActive = true;
+        printerState.isReminderSet = true;
+    }
+} catch (e) {}
 let currentButtonHandler = null;
 
 // Listen for wakeup events while app is open in foreground
@@ -190,16 +238,17 @@ function setupButtonsForScreen(screenId) {
             single: true,
             onPush(pushed, button) {
                 const isPrinting = printerState.status.toLowerCase() === "printing";
-                if (button === "select") {
+                const isStopped = printerState.status.toLowerCase() === "stopped";
+                if (button === "up") {
                     if (isPrinting) {
                         setScreen(SCREEN_STOP_CONFIRM);
                     } else {
                         prusa.requestRefresh();
                     }
-                } else if (button === "down" && isPrinting) {
-                    setScreen(SCREEN_REMINDER);
-                } else if (button === "up") {
+                } else if (button === "select") {
                     prusa.requestRefresh();
+                } else if (button === "down" && (isPrinting || isStopped)) {
+                    setScreen(SCREEN_REMINDER);
                 }
             }
         });
@@ -228,6 +277,7 @@ function setupButtonsForScreen(screenId) {
                             cancelReminder();
                             reminderActive = false;
                             printerState.status = "Stopped";
+                            persistPrinterState();
                             try { Vibes.shortPulse(); } catch {}
                             setScreen(SCREEN_MAIN);
                         } else if (button === "down" || button === "back") {
@@ -238,12 +288,23 @@ function setupButtonsForScreen(screenId) {
 
                     case SCREEN_REMINDER:
                         if (button === "up") {
-                            // Confirm reminder
-                            console.log("User confirmed reminder. Scheduling WakeUp...");
-                            const id = scheduleReminder(printerState.completionTime);
-                            reminderActive = (id !== null);
-                            try { Vibes.shortPulse(); } catch {}
-                            setScreen(SCREEN_MAIN);
+                            if (reminderActive) {
+                                // Turn off / cancel active reminder
+                                console.log("User turned off active reminder.");
+                                cancelReminder();
+                                reminderActive = false;
+                                printerState.isReminderSet = false;
+                                try { Vibes.shortPulse(); } catch {}
+                                setScreen(SCREEN_MAIN);
+                            } else {
+                                // Confirm reminder
+                                console.log("User confirmed reminder. Scheduling WakeUp...");
+                                const id = scheduleReminder(printerState.completionTime);
+                                reminderActive = (id !== null);
+                                printerState.isReminderSet = reminderActive;
+                                try { Vibes.shortPulse(); } catch {}
+                                setScreen(SCREEN_MAIN);
+                            }
                         } else if (button === "down" || button === "back") {
                             // Decline reminder confirmation
                             setScreen(SCREEN_MAIN);
@@ -309,10 +370,10 @@ prusa.addEventListener((state) => {
         printerState.finishClock = "--:--";
     }
 
-    if (state.fileName === "Print Stopped" || state.fileName === "Stopped") {
+    if (state.status) {
+        printerState.status = state.status;
+    } else if (state.fileName === "Print Stopped" || state.fileName === "Stopped") {
         printerState.status = "Stopped";
-        cancelReminder();
-        reminderActive = false;
     } else if (printerState.progress > 0 && printerState.progress < 100) {
         printerState.status = "Printing";
     } else if (printerState.progress >= 100) {
@@ -326,6 +387,12 @@ prusa.addEventListener((state) => {
         printerState.status = "Idle";
     }
 
+    if (printerState.status === "Stopped" || printerState.status === "Finished" || printerState.status === "Idle") {
+        cancelReminder();
+        reminderActive = false;
+    }
+
+    persistPrinterState();
     drawCurrentScreen();
 });
 

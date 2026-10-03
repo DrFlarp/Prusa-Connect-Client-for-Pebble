@@ -32,7 +32,8 @@
       "StopSignal",
       "Configured",
       "Refresh",
-      "RefreshToken"
+      "RefreshToken",
+      "Status"
     ],
     "resources": {
       "media": [

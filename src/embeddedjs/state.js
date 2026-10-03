@@ -17,5 +17,6 @@ export const printerState = {
     progress: 0,
     completionTime: "",
     finishClock: "--:--",
-    isConfigured: false
+    isConfigured: false,
+    isReminderSet: false
 };

@@ -65,15 +65,21 @@ export function renderMainScreen(state) {
     render.drawText(percentStr, fontBody, COLOR_WHITE, percentX, 114);
 
     // Estimated finish time
-    const finishStr = !isPrinting ? "Finish: --:--" : `Finish: ${state.finishClock}`;
+    let finishStr = !isPrinting ? "Finish: --:--" : `Finish: ${state.finishClock}`;
+    if (isPrinting && state.isReminderSet) {
+        finishStr += " (Set)";
+    }
     render.drawText(finishStr, fontBody, COLOR_WHITE, 6, 138);
 
-    // Hardware button action cues (only visible during an active print job)
+    // Hardware button action cues
     if (isPrinting) {
-        // SELECT button -> Stop Square
-        drawStopSquare(176, 106, COLOR_CORAL);
-        // DOWN button -> Alarm clock
-        drawAlarmClock(174, 192, COLOR_WHITE);
+        // UP button -> Stop Square (active printing only)
+        drawStopSquare(176, 38, COLOR_CORAL);
+    }
+    if (isPrinting || isStopped) {
+        // DOWN button -> Alarm clock (Green when active/set, White otherwise)
+        const clockColor = state.isReminderSet ? COLOR_GREEN : COLOR_WHITE;
+        drawAlarmClock(174, 192, clockColor);
     }
 }
 
@@ -108,20 +114,38 @@ export function renderReminderScreen(state) {
     // Black background
     render.fillRectangle(COLOR_BLACK, 0, 0, screen.width, screen.height);
 
-    // Coral header
-    render.fillRectangle(COLOR_CORAL, 0, 0, screen.width, 32);
-    render.drawText("SET REMINDER", fontHeader, COLOR_BLACK, 8, 7);
+    if (state.isReminderSet) {
+        // Coral header
+        render.fillRectangle(COLOR_CORAL, 0, 0, screen.width, 32);
+        render.drawText("REMINDER ACTIVE", fontHeader, COLOR_BLACK, 8, 7);
 
-    // 3D Printer Graphic
-    draw3DPrinter(20, 48, COLOR_CORAL, false);
+        // 3D Printer Graphic with green completed model
+        draw3DPrinter(20, 48, COLOR_GREEN, false);
 
-    // Reminder prompt
-    render.drawText("Notify when done?", fontBody, COLOR_WHITE, 8, 114);
-    render.drawText(`Est: ${state.finishClock}`, fontBody, COLOR_CORAL, 8, 140);
+        // Reminder prompt
+        render.drawText("Alarm already set!", fontBody, COLOR_GREEN, 8, 114);
+        render.drawText(`Est: ${state.finishClock}`, fontBody, COLOR_WHITE, 8, 136);
+        render.drawText("Cancel alarm?", fontSmall, COLOR_GRAY, 8, 160);
 
-    // Action cues: UP = confirm (checkmark), DOWN = cancel (cross)
-    drawCheckmark(176, 38, COLOR_GREEN);
-    drawCross(176, 174, COLOR_WHITE);
+        // Action cues: UP = turn off (cross), DOWN = keep (checkmark)
+        drawCross(176, 38, COLOR_CORAL);
+        drawCheckmark(176, 174, COLOR_GREEN);
+    } else {
+        // Coral header
+        render.fillRectangle(COLOR_CORAL, 0, 0, screen.width, 32);
+        render.drawText("SET REMINDER", fontHeader, COLOR_BLACK, 8, 7);
+
+        // 3D Printer Graphic
+        draw3DPrinter(20, 48, COLOR_CORAL, false);
+
+        // Reminder prompt
+        render.drawText("Notify when done?", fontBody, COLOR_WHITE, 8, 114);
+        render.drawText(`Est: ${state.finishClock}`, fontBody, COLOR_CORAL, 8, 140);
+
+        // Action cues: UP = confirm (checkmark), DOWN = cancel (cross)
+        drawCheckmark(176, 38, COLOR_GREEN);
+        drawCross(176, 174, COLOR_WHITE);
+    }
 }
 
 /**

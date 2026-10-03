@@ -20,7 +20,7 @@ class PrusaConnect {
 
     constructor() {
         this.#message = new Message({
-            keys: ["Progress", "FileName", "PrinterName", "CompletionTime", "StopSignal", "Configured", "Refresh", "RefreshToken"],
+            keys: ["Progress", "FileName", "PrinterName", "CompletionTime", "StopSignal", "Configured", "Refresh", "RefreshToken", "Status"],
             target: this,
             onReadable() {
                 const target = this.target;
@@ -48,8 +48,12 @@ class PrusaConnect {
                     target.#state.configured = msg.get("Configured");
                     updated = true;
                 }
+                if (msg.has("Status")) {
+                    target.#state.status = msg.get("Status");
+                    updated = true;
+                }
 
-                console.log("Watch received message: Configured=" + msg.get("Configured") + " Progress=" + msg.get("Progress") + " File=" + msg.get("FileName"));
+                console.log("Watch received message: Configured=" + msg.get("Configured") + " Progress=" + msg.get("Progress") + " Status=" + msg.get("Status") + " File=" + msg.get("FileName"));
                 if (updated) {
                     target.#notifyListeners();
                 }
