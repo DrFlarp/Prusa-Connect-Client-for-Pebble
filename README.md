@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="screenshots/banner_720x320.png" alt="Pebble Client for Prusa Connect Banner" width="720">
+</p>
+
 # Prusa Connect for Pebble
 
 A Pebble smartwatch app to monitor and control your 3D prints through Prusa Connect.
@@ -44,17 +48,21 @@ It connects your Pebble to your Prusa Connect account, showing print progress, s
 
 ---
 
-## Setup
+## Setup Guide
+
+> 📖 **Interactive Online Guide:** Visit the [GitHub Pages Setup Guide](https://rp1-mvac.github.io/Prusa-Connect/) for an interactive walkthrough with 1-click command copying, screenshots, and visual troubleshooting.
+
+### Quick Setup (30 Seconds)
 
 1. Open [connect.prusa3d.com](https://connect.prusa3d.com) in your web browser and log in.
 2. Open your browser console (`F12` > **Console**) and run:
    ```javascript
    copy(localStorage.getItem('auth.refresh_token'))
    ```
-   This copies your Prusa Refresh Token to your clipboard.
-3. Open the **Pebble** (or Rebble) app on your phone.
+   This copies your personal Prusa Refresh Token to your clipboard.
+3. Open the **Pebble** (or Rebble) mobile app on your phone.
 4. Go to **Apps** > **Prusa Connect** > **Settings**.
-5. Paste your token and tap **Save & Connect**.
+5. Paste your token into the **Prusa Refresh Token** field and tap **Save & Connect**.
 
 ---
 

@@ -15,7 +15,7 @@ module.exports = [
         "messageKey": "RefreshToken",
         "defaultValue": "",
         "label": "Prusa Refresh Token",
-        "description": "Paste your Prusa Connect refresh token here. The app automatically refreshes tokens and stays connected continuously. See PRUSA_SETUP_GUIDE.md for instructions.",
+        "description": "Paste your Prusa Connect refresh token here. The app automatically refreshes tokens and stays connected continuously. See the online guide at https://rp1-mvac.github.io/Prusa-Connect/ for instructions.",
         "attributes": {
           "placeholder": "eyJhbGciOiJSUzI1NiIs...",
           "type": "text"

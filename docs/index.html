@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Setup Manual — Prusa Connect for Pebble</title>
+    <meta name="description" content="Technical setup manual and user guide for the Prusa Connect Pebble smartwatch application.">
+    <link rel="stylesheet" href="style.css">
+    <link rel="icon" type="image/png" href="assets/icon.png">
+</head>
+<body>
+
+    <!-- Header Bar -->
+    <header class="wiki-header">
+        <div class="header-inner">
+            <a href="#" class="header-title">
+                <img src="assets/icon.png" alt="Icon">
+                Prusa Connect for Pebble
+            </a>
+            <div class="header-meta">
+                <span class="header-tag">v1.0.0</span>
+                <span class="header-tag">Emery / Gabbro</span>
+                <a href="https://github.com/RP1-MVac/Prusa-Connect" class="header-link">GitHub Repository →</a>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Layout -->
+    <div class="wiki-layout">
+        
+        <!-- Table of Contents Sidebar -->
+        <aside class="wiki-sidebar">
+            <div class="sidebar-heading">Contents</div>
+            <ul class="sidebar-nav">
+                <li class="sidebar-item"><a href="#overview" class="sidebar-link active">1. Overview</a></li>
+                <li class="sidebar-item"><a href="#prerequisites" class="sidebar-link">2. Prerequisites</a></li>
+                <li class="sidebar-item"><a href="#step-1" class="sidebar-link">3. Get Refresh Token</a></li>
+                <li class="sidebar-item"><a href="#step-2" class="sidebar-link">4. Configure Mobile App</a></li>
+                <li class="sidebar-item"><a href="#step-3" class="sidebar-link">5. Smartwatch Verification</a></li>
+                <li class="sidebar-item"><a href="#controls" class="sidebar-link">6. Hardware Watch Controls</a></li>
+                <li class="sidebar-item"><a href="#architecture" class="sidebar-link">7. Architecture & Privacy</a></li>
+                <li class="sidebar-item"><a href="#troubleshooting" class="sidebar-link">8. Troubleshooting & FAQ</a></li>
+            </ul>
+        </aside>
+
+        <!-- Article Content -->
+        <main class="wiki-content">
+
+            <!-- Banner -->
+            <div class="wiki-banner">
+                <img src="assets/banner_720x320.png" alt="Prusa Connect for Pebble Banner" width="720" height="320">
+            </div>
+
+            <h1>Prusa Connect for Pebble — Setup Manual</h1>
+
+            <div class="wiki-note">
+                <p><strong>Summary:</strong> This manual provides comprehensive setup instructions for connecting your Pebble smartwatch directly to Prusa Connect using your personal OAuth2 Refresh Token.</p>
+            </div>
+
+            <!-- 1. Overview -->
+            <section id="overview">
+                <h2>1. Overview</h2>
+                <p><strong>Prusa Connect for Pebble</strong> is an open-source smartwatch application that connects Pebble smartwatches to Prusa Connect. It displays real-time telemetry from active 3D printing jobs directly on your wrist, allows remote pausing and aborting of prints, schedules local wake-up vibration alarms, and syncs print estimates to your Pebble Timeline.</p>
+                <p>Supported smartwatch platforms:</p>
+                <ul>
+                    <li><strong>Pebble Time 2 (Emery):</strong> 200 × 228 rectangular 64-color display.</li>
+                    <li><strong>Pebble Time Round 2 (Gabbro):</strong> 260 × 260 circular 64-color display with curved top header arc.</li>
+                    <li><strong>Pebble Time / Pebble Time Steel (Basalt):</strong> Color rectangular display.</li>
+                </ul>
+                <p>Supported 3D printers:</p>
+                <ul>
+                    <li>Original Prusa MK4, MK4S, XL, MINI, MINI+, and MK3/MK3S+ (via PrusaLink / Prusa Connect).</li>
+                </ul>
+            </section>
+
+            <!-- 2. Prerequisites -->
+            <section id="prerequisites">
+                <h2>2. Prerequisites</h2>
+                <p>Before configuring the application, ensure you have:</p>
+                <ol>
+                    <li>A registered account on <a href="https://connect.prusa3d.com" target="_blank" rel="noopener">connect.prusa3d.com</a> with at least one active 3D printer.</li>
+                    <li>The <strong>Pebble</strong> (or Rebble) companion app installed on your smartphone (Android or iOS).</li>
+                    <li>The <strong>Prusa Connect</strong> watchapp installed on your Pebble smartwatch.</li>
+                    <li>Access to a desktop web browser (Chrome, Firefox, Edge, Safari, Brave) to copy your authentication token.</li>
+                </ol>
+            </section>
+
+            <!-- 3. Step 1 -->
+            <section id="step-1">
+                <h2>3. Step 1: Retrieve Your Refresh Token</h2>
+                <p>Prusa Connect uses OAuth2 authentication. You can extract your personal session refresh token directly from your browser session in seconds without entering your password into third-party software.</p>
+
+                <h3>Method A: Browser Console (Recommended)</h3>
+                <ol>
+                    <li>Open your web browser on your computer and log in to <a href="https://connect.prusa3d.com" target="_blank" rel="noopener">connect.prusa3d.com</a>.</li>
+                    <li>Open Developer Tools by pressing <span class="kbd">F12</span> (or <span class="kbd">Ctrl</span> + <span class="kbd">Shift</span> + <span class="kbd">I</span> on Windows/Linux, <span class="kbd">Cmd</span> + <span class="kbd">Option</span> + <span class="kbd">I</span> on macOS).</li>
+                    <li>Click the <strong>Console</strong> tab.</li>
+                    <li>Paste the following command and press <span class="kbd">Enter</span>:</li>
+                </ol>
+
+                <div class="code-box">
+                    <pre><code id="cmd-console">copy(localStorage.getItem('auth.refresh_token'))</code></pre>
+                    <button class="copy-btn" data-target="cmd-console">Copy</button>
+                </div>
+
+                <p>Your browser will copy the full refresh token directly to your clipboard. If you want to print the token on screen instead of copying to clipboard, execute:</p>
+
+                <div class="code-box">
+                    <pre><code id="cmd-print">localStorage.getItem('auth.refresh_token')</code></pre>
+                    <button class="copy-btn" data-target="cmd-print">Copy</button>
+                </div>
+
+                <h3>Method B: Network Tab (Fallback)</h3>
+                <p>If your browser blocks programmatic clipboard access:</p>
+                <ol>
+                    <li>While logged in to <a href="https://connect.prusa3d.com/app/" target="_blank" rel="noopener">connect.prusa3d.com/app/</a>, press <span class="kbd">F12</span> and switch to the <strong>Network</strong> tab.</li>
+                    <li>In the filter input, type <code>token</code>.</li>
+                    <li>Reload the page (<span class="kbd">F5</span> or <span class="kbd">Ctrl</span> + <span class="kbd">R</span>).</li>
+                    <li>Click on the request to <code>https://account.prusa3d.com/o/token/</code>.</li>
+                    <li>Under the <strong>Response</strong> tab, locate and copy the string value inside <code>"refresh_token": "..."</code>.</li>
+                </ol>
+
+                <div class="wiki-note info">
+                    <p><strong>Token Format:</strong> The refresh token is an encoded JWT string starting with <code>eyJhbGci...</code>.</p>
+                </div>
+            </section>
+
+            <!-- 4. Step 2 -->
+            <section id="step-2">
+                <h2>4. Step 2: Configure the Mobile App</h2>
+                <p>Once you have copied the token:</p>
+                <ol>
+                    <li>Open the <strong>Pebble</strong> (or Rebble) companion app on your phone.</li>
+                    <li>Navigate to the <strong>Apps</strong> (Watchapps) list.</li>
+                    <li>Locate <strong>Prusa Connect</strong> and tap the <strong>Settings</strong> button (gear icon).</li>
+                    <li>Paste your copied token into the <strong>Prusa Refresh Token</strong> text field.</li>
+                    <li>Tap <strong>Save & Connect</strong>.</li>
+                </ol>
+                <p>The companion app immediately transmits the token to PebbleKit JS, which initiates an OAuth2 token exchange with Prusa's account server (<code>account.prusa3d.com</code>).</p>
+            </section>
+
+            <!-- 5. Step 3 -->
+            <section id="step-3">
+                <h2>5. Step 3: Smartwatch Verification</h2>
+                <p>Upon successful authentication, the watch interface transitions from <em>"Setup Required"</em> to the active print monitoring view.</p>
+
+                <div class="image-grid">
+                    <div class="image-card">
+                        <img src="assets/emery_main_screen.png" alt="Emery Main Screen" width="160">
+                        <div class="image-caption">Emery (200 × 228)</div>
+                        <div class="image-subcaption">Rectangular Main Screen</div>
+                    </div>
+                    <div class="image-card">
+                        <img src="assets/emery_stop_screen.png" alt="Emery Stop Screen" width="160">
+                        <div class="image-caption">Emery (200 × 228)</div>
+                        <div class="image-subcaption">Emergency Stop Screen</div>
+                    </div>
+                    <div class="image-card round">
+                        <img src="assets/gabbro_main_screen.png" alt="Gabbro Main Screen" width="160">
+                        <div class="image-caption">Gabbro (260 × 260)</div>
+                        <div class="image-subcaption">Curved Top Arc Headline</div>
+                    </div>
+                    <div class="image-card round">
+                        <img src="assets/gabbro_stop_screen.png" alt="Gabbro Stop Screen" width="160">
+                        <div class="image-caption">Gabbro (260 × 260)</div>
+                        <div class="image-subcaption">Stop Confirmation Screen</div>
+                    </div>
+                </div>
+
+                <p>The main screen presents:</p>
+                <ul>
+                    <li><strong>Printer Name:</strong> Highlighted in Prusa Orange (arced along the top bezel curve on Gabbro).</li>
+                    <li><strong>File Name:</strong> The active gcode / bgcode job being printed.</li>
+                    <li><strong>Status Label:</strong> Current printer state (Printing, Paused, Stopped, Finished, or Idle).</li>
+                    <li><strong>Progress Bar:</strong> Visual percentage indicator in Prusa Orange.</li>
+                    <li><strong>Estimated Finish Time:</strong> 24-hour clock estimate, with <code>(Set)</code> indicator if reminder alarm is armed.</li>
+                    <li><strong>Action Cues:</strong> Hardware button icons along the right edge.</li>
+                </ul>
+            </section>
+
+            <!-- 6. Hardware Controls -->
+            <section id="controls">
+                <h2>6. Hardware Watch Controls</h2>
+                <p>Physical button assignments on the watch:</p>
+
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Hardware Button</th>
+                            <th>Printer State</th>
+                            <th>Action & Destination Screen</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><span class="kbd">UP</span></td>
+                            <td>Printing / Paused</td>
+                            <td>Opens the <strong>Emergency Stop</strong> confirmation screen. Press <span class="kbd">UP</span> again to send <code>STOP_PRINT</code> command.</td>
+                        </tr>
+                        <tr>
+                            <td><span class="kbd">UP</span></td>
+                            <td>Idle / Stopped</td>
+                            <td>Requests an immediate telemetry refresh.</td>
+                        </tr>
+                        <tr>
+                            <td><span class="kbd">SELECT</span> (Center)</td>
+                            <td>Printing</td>
+                            <td>Opens the <strong>Pause Print</strong> confirmation screen. Press <span class="kbd">UP</span> to confirm <code>PAUSE_PRINT</code>.</td>
+                        </tr>
+                        <tr>
+                            <td><span class="kbd">SELECT</span> (Center)</td>
+                            <td>Paused</td>
+                            <td>Opens the <strong>Resume Print</strong> confirmation screen. Press <span class="kbd">UP</span> to confirm <code>RESUME_PRINT</code>.</td>
+                        </tr>
+                        <tr>
+                            <td><span class="kbd">DOWN</span></td>
+                            <td>Any State</td>
+                            <td>Toggles the <strong>Completion Alarm</strong>. Arms a local Pebble WakeUp reminder scheduled for the estimated completion time.</td>
+                        </tr>
+                        <tr>
+                            <td><span class="kbd">BACK</span></td>
+                            <td>Confirmation Screen</td>
+                            <td>Cancels command and returns to Main Monitoring Screen.</td>
+                        </tr>
+                        <tr>
+                            <td><span class="kbd">BACK</span></td>
+                            <td>Main Screen</td>
+                            <td>Exits to the watchface. Background polling continues on your phone.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </section>
+
+            <!-- 7. Architecture & Privacy -->
+            <section id="architecture">
+                <h2>7. Architecture & Security</h2>
+                <p>The application is designed for direct, end-to-end communication:</p>
+
+                <ul>
+                    <li><strong>No Intermediate Servers:</strong> All network traffic originates directly from your smartphone via PebbleKit JS. Requests are sent straight to official Prusa endpoints (<code>account.prusa3d.com</code> and <code>connect.prusa3d.com</code>). No third-party relays, analytics, or middleware proxies are involved.</li>
+                    <li><strong>No Stored Passwords:</strong> The application never handles or stores your Prusa account password.</li>
+                    <li><strong>OAuth2 Refresh Token Rotation:</strong> Whenever the companion app refreshes session credentials, Prusa issues a fresh refresh token. The app saves this rotated token locally in your smartphone's persistent storage (<code>localStorage</code>), preserving continuous connectivity without re-login.</li>
+                    <li><strong>Pebble Alloy (Moddable XS) on Watch:</strong> The embedded watch application runs via Moddable XS embedded JavaScript runtime, communicating with the phone over Pebble AppMessage.</li>
+                </ul>
+            </section>
+
+            <!-- 8. Troubleshooting & FAQ -->
+            <section id="troubleshooting">
+                <h2>8. Troubleshooting & Frequently Asked Questions</h2>
+
+                <details>
+                    <summary>The watch displays "Setup Required" after entering my token.</summary>
+                    <div class="details-body">
+                        <p>This occurs if the refresh token was incomplete, expired, or contained extra whitespace. Repeat Step 1 using the <code>copy(localStorage.getItem('auth.refresh_token'))</code> one-liner in your browser console, paste it into Settings in the Pebble app, and press <strong>Save & Connect</strong>.</p>
+                    </div>
+                </details>
+
+                <details>
+                    <summary>Does the completion reminder alarm ring if the watchapp is closed?</summary>
+                    <div class="details-body">
+                        <p>Yes. When armed, the app registers a native hardware <code>WakeUp</code> event with Pebble OS. Even if the watchapp is closed and you are on a watchface, Pebble OS will launch the app and trigger a continuous vibration pattern when the scheduled finish time arrives.</p>
+                    </div>
+                </details>
+
+                <details>
+                    <summary>How does the Pebble Timeline integration work?</summary>
+                    <div class="details-body">
+                        <p>When an active print is detected, the phone companion app pushes a Timeline pin to your Rebble Timeline for the estimated finish timestamp, complete with a 5-minute pre-completion warning alert. If the print is paused, stopped, or finishes early, the pin is automatically updated or removed.</p>
+                    </div>
+                </details>
+
+                <details>
+                    <summary>How can I revoke access or disconnect the app?</summary>
+                    <div class="details-body">
+                        <p>You can revoke access immediately by logging out of your account on <a href="https://connect.prusa3d.com" target="_blank" rel="noopener">connect.prusa3d.com</a> (which invalidates the refresh token), or by clearing the token field in the Pebble app settings.</p>
+                    </div>
+                </details>
+
+                <details>
+                    <summary>What if I have multiple 3D printers connected to my account?</summary>
+                    <div class="details-body">
+                        <p>The companion app queries the printer list endpoint (<code>/app/printers</code>) and automatically selects the printer that is currently active (Printing or Paused). If none are printing, it monitors your primary registered printer.</p>
+                    </div>
+                </details>
+            </section>
+
+            <!-- Footer -->
+            <footer class="wiki-footer">
+                <p>Prusa Connect for Pebble • MIT License • Built for Pebble OS (Emery & Gabbro).</p>
+                <p style="margin-top: 6px; font-size: 0.78rem; color: var(--text-muted);">
+                    Disclaimer: This is an independent open-source community project and is not affiliated, authorized, endorsed by, or in any way officially connected with Prusa Research a.s. or Pebble Technology.
+                </p>
+            </footer>
+
+        </main>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
