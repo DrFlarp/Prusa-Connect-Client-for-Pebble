@@ -10,6 +10,8 @@
 			"./theme",
 			"./icons",
 			"./screens",
+			"./screens-rect",
+			"./screens-round",
 			"./state"
 		]
 	}

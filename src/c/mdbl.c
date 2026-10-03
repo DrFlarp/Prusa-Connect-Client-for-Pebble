@@ -7,8 +7,8 @@ int main(void) {
   ModdableCreationRecord cr = {
     .recordSize = sizeof(cr),
     .stack = 8192,
-    .slot = 32768,
-    .chunk = 32768,
+    .slot = 36864,
+    .chunk = 24576,
     .flags = kModdableCreationFlagLogInstrumentation,
   };
   moddable_createMachine(&cr);
