@@ -1,193 +1,149 @@
 # Prusa Connect for Pebble
 
-[![Platform](https://img.shields.io/badge/Platform-Pebble%20OS%204.x-FF5B00.svg)](https://rebble.io)
-[![Framework](https://img.shields.io/badge/Runtime-Pebble%20Alloy%20%2F%20Moddable%20XS-blue.svg)](https://developer.repebble.com)
-[![Hardware](https://img.shields.io/badge/Targets-Emery%20%7C%20Gabbro-brightgreen.svg)](https://developer.repebble.com)
+A Pebble smartwatch app to monitor and control your 3D prints through Prusa Connect.
 
-A feature-rich Pebble smartwatch companion app for **Prusa Connect**. Monitor 3D prints in real-time, schedule wrist wake-up vibration alarms, synchronize completion times to your Pebble Timeline, and issue emergency stop commands directly from your wrist.
+It connects your Pebble to your Prusa Connect account, showing print progress, status, and finish times on your wrist. You can pause, resume, or stop jobs, receive a vibration alert when a print finishes, and sync print completion times to your Pebble Timeline.
 
 ---
 
-## ✨ Features
+## Features
 
-- **Live Print Monitoring**: View current print progress percentage, animated progress bar, job filename, and printer status.
-- **Estimated Finish Time**: Dynamic completion time calculated and updated in real-time.
-- **Wrist Wake-Up Alarms**: Schedule a system wake-up alarm for the exact completion time. The watch will automatically launch the app and trigger a vibration sequence when the print finishes.
-- **Pebble Timeline Integration**: Automatically synchronizes a Timeline Pin with estimated completion time, reminder notifications, and one-click app launch actions.
-- **Remote Emergency Stop**: Send an immediate `STOP_PRINT` command to your printer with an accidental-press safety confirmation screen.
-- **Automated Authentication**: Direct OAuth login via your Prusa Account (Email & Password) with automated silent token refresh when credentials expire.
-- **Intuitive Button Navigation**: Custom color cues, action bar icons, and native back-button handling that lets you exit cleanly or decline prompts.
+- **Live Print Monitoring:** Displays printer name, active file, percentage progress bar, current state (Printing, Paused, Stopped, Finished, Idle), and estimated completion time.
+- **Remote Print Controls:** Pause, resume, or abort an active print directly from your watch, each protected with a confirmation screen.
+- **Wake-Up Alarm:** Schedules a Pebble WakeUp alarm that wakes the watch and vibrates when your print finishes, even if the app was closed.
+- **Timeline Integration:** Pushes a pin to your Pebble Timeline for the estimated completion time. It automatically cleans up stale pins if a print is stopped, cancelled, or finished.
+- **Direct Communication:** Your phone connects directly to Prusa Connect (`connect.prusa3d.com` and `account.prusa3d.com`) using your personal refresh token. No third-party servers or middleware proxies are used.
 
 ---
 
-## 🕹️ Controls & Navigation
+## Supported Devices
 
-### 1. Main Screen
-| Button | Action |
-| :--- | :--- |
-| **Back** | Cleanly exits the app and returns to the watchface. |
-| **Up** | Opens the **Emergency Stop** confirmation screen (active when printing or paused; otherwise refreshes). |
-| **Select (Center)** | **Pause / Resume Print**: Opens the Pause confirmation screen while printing, or the Resume confirmation screen while paused (triggers immediate status refresh when idle/stopped). |
-| **Down** | Opens the **Wake-Up Reminder** screen (shows status if already set, allows toggle/scheduling). |
-
-### 2. Emergency Stop Confirmation Screen
-| Button | Action |
-| :--- | :--- |
-| **Up** (Checkmark) | **Confirm**: Sends the `STOP_PRINT` command to the printer via Prusa Connect. |
-| **Back / Down** (Cross) | **Cancel**: Declines the prompt and returns safely to the Main Screen. |
-
-### 3. Pause / Resume Confirmation Screens
-| Button | Action |
-| :--- | :--- |
-| **Up** (Checkmark) | **Confirm**: Sends the `PAUSE_PRINT` (or `RESUME_PRINT`) command to the printer via Prusa Connect. |
-| **Back / Down** (Cross) | **Cancel**: Declines the prompt and returns safely to the Main Screen. |
-
-### 4. Reminder Screen
-| Button | Action |
-| :--- | :--- |
-| **Up** | **Confirm / Cancel**: Schedules the reminder wakeup if not set, or turns off the active alarm if already set. |
-| **Back / Down** | Returns to the Main Screen preserving the current reminder status. |
-
-### 5. Finished Screen (Alarm Triggered)
-| Button | Action |
-| :--- | :--- |
-| **Select / Back** | Acknowledges the completion alarm, stops the vibration sequence, and returns to the Main Screen. |
-
-### 5. Setup Required Screen (Missing Keys / Not Configured)
-| Button | Action |
-| :--- | :--- |
-| **Select / Up** | Triggers an immediate retry / check for credentials after configuring settings in the phone app. |
-| **Back** | Cleanly exits the app and returns to the watchface. |
+- **Watches:** Pebble Time 2 (`emery`), Pebble Time Round 2 (`gabbro`), and other color Pebble models.
+- **Printers:** Any printer connected to Prusa Connect (Original Prusa MK4/MK4S, XL, MINI/MINI+, MK3/MK3S+ via PrusaLink/Connect).
 
 ---
 
-## 📱 Configuration
+## Watch Controls
 
-The app uses **Clay** to provide an integrated settings page in the Pebble mobile app (Pebble / Rebble mobile app on Android & iOS):
+### Main Screen
+| Button | State | Action |
+| :--- | :--- | :--- |
+| **Up** | Printing / Paused | Opens the **Emergency Stop** confirmation screen |
+| **Up** | Idle / Stopped | Requests an immediate telemetry refresh |
+| **Select (Center)** | Printing | Opens the **Pause Print** confirmation screen |
+| **Select (Center)** | Paused | Opens the **Resume Print** confirmation screen |
+| **Select (Center)** | Idle / Stopped | Requests an immediate telemetry refresh |
+| **Down** | Printing / Paused / Stopped | Opens the **Wake-Up Reminder** screen |
+| **Back** | Any | Exits the app and returns to the watchface |
 
-1. Open the Pebble mobile app on your phone.
-2. Go to **Apps** > **Prusa Connect** > **Settings**.
-3. Paste your **Prusa Refresh Token**.
-4. Tap **Save & Connect**.
-
-For step-by-step instructions on obtaining your token in 15 seconds, see the [Prusa Setup Guide](file:///home/sobol/Pebble-Apps/Prusa-Connect/PRUSA_SETUP_GUIDE.md).
-
-The companion PebbleKit JS component will automatically exchange the refresh token for a live session, acquire printer telemetry, and continuously keep tokens refreshed in the background.
+### Confirmation Screens
+- **Stop Print (`Up` button from Main):** Press **Up** to confirm abort (`STOP_PRINT`), or **Down / Back** to cancel.
+- **Pause Print (`Select` button while Printing):** Press **Up** to confirm pause (`PAUSE_PRINT`), or **Down / Back** to cancel.
+- **Resume Print (`Select` button while Paused):** Press **Up** to confirm resume (`RESUME_PRINT`), or **Down / Back** to cancel.
+- **Wake-Up Reminder (`Down` button):** Press **Up** to enable or disable the completion alarm, or **Down / Back** to return. When active, an alarm clock icon turns green and `(Set)` appears beside the estimated finish time.
 
 ---
 
-## 🏗️ Architecture & Tech Stack
+## Setup
+
+1. Open [connect.prusa3d.com](https://connect.prusa3d.com) in your web browser and log in.
+2. Open your browser console (`F12` > **Console**) and run:
+   ```javascript
+   copy(localStorage.getItem('auth.refresh_token'))
+   ```
+   This copies your Prusa Refresh Token to your clipboard.
+3. Open the **Pebble** (or Rebble) app on your phone.
+4. Go to **Apps** > **Prusa Connect** > **Settings**.
+5. Paste your token and tap **Save & Connect**.
+
+---
+
+## How Communication Works (Unofficial API)
+
+This app connects directly to the private API endpoints that power the Prusa Connect web interface (`account.prusa3d.com` and `connect.prusa3d.com`). All network requests originate directly from your phone through PebbleKit JS; there are no intermediary servers or proxies.
+
+Authentication uses OAuth2 token refresh:
+1. The app takes your browser refresh token and exchanges it with Prusa's account server for a temporary bearer token.
+2. Every time a token is refreshed, Prusa issues a new rotated refresh token, which the app saves locally in PebbleKit JS storage.
+3. Telemetry and printer commands (`STOP_PRINT`, `PAUSE_PRINT`, `RESUME_PRINT`) are sent as HTTPS requests to the Prusa Connect printer API.
+
+**Important Note:** Prusa has not published an official third-party API for Prusa Connect. Because this app relies on reverse-engineered web endpoints, any changes Prusa makes to their authentication schemes, API endpoints, or data formats can cause the integration to break without notice.
+
+---
+
+## Modifying & Building
+
+This project combines **Pebble Alloy (Moddable XS JavaScript)** running on the watch with **PebbleKit JS** running on your phone.
+
+### Project Layout
 
 ```
-   ┌─────────────────────────────────────────────────────────┐
-   │                  Pebble Watch (Wrist)                   │
-   │  ┌───────────────────────────────────────────────────┐  │
-   │  │             Pebble Alloy / Moddable XS            │  │
-   │  │  - main.js (Event loop, AppMessage dispatcher)   │  │
-   │  │  - screens.js (Main, Confirm, Reminder views)     │  │
-   │  │  - theme.js & icons.js (Graphics rendering)       │  │
-   │  │  - state.js (Reactive app state store)            │  │
-   │  │  - prusa-api.js (Moddable <-> C bindings)         │  │
-   │  └───────────────────────────────────────────────────┘  │
-   │  ┌───────────────────────────────────────────────────┐  │
-   │  │             Pebble C / Firmware Core              │  │
-   │  │  - WakeUp Service (pebble/wakeup)                 │  │
-   │  │  - Vibration API (pebble/vibes)                   │  │
-   │  │  - Window stack & Button event handlers           │  │
-   │  └───────────────────────────────────────────────────┘  │
-   └───────────────────────────▲─────────────────────────────┘
-                               │ Pebble AppMessage Protocol
-                               ▼
-   ┌─────────────────────────────────────────────────────────┐
-   │                  Phone Companion (PKJS)                 │
-   │  ┌───────────────────────────────────────────────────┐  │
-   │  │  src/pkjs/index.js                                │  │
-   │  │  - Prusa Connect OAuth token acquisition & refresh│  │
-   │  │  - Printer telemetry polling & parsing            │  │
-   │  │  - Remote STOP_PRINT command execution            │  │
-   │  │  - Pebble Timeline Pin synchronization            │  │
-   │  └───────────────────────────────────────────────────┘  │
-   │  ┌───────────────────────────────────────────────────┐  │
-   │  │  src/pkjs/config.js (Clay Settings Page)          │  │
-   │  └───────────────────────────────────────────────────┘  │
-   └───────────────────────────▲─────────────────────────────┘
-                               │ HTTPS REST API
-                               ▼
-   ┌─────────────────────────────────────────────────────────┐
-   │                      Prusa Cloud                        │
-   │  - account.prusa3d.com (OAuth 2.0 Token Authority)      │
-   │  - connect.prusa3d.com (Printer Telemetry & Sync API)    │
-   └─────────────────────────────────────────────────────────┘
-```
-
----
-
-## 📁 Project Structure
-
-```
-├── package.json                   # App manifest, SDK metadata, message keys, resources
-├── README.md                      # Project documentation
-├── resources/
-│   └── images/
-│       └── menu_icon.png          # 25x25 launcher icon for Pebble OS
-├── scripts/
-│   ├── generate_menu_icon.py      # Pixel generator for the menu icon
-│   └── patch-pebbleproxy.js       # PebbleProxy build helper
+Prusa-Connect/
+├── package.json               # App metadata, platforms, and messageKeys
 ├── src/
-│   ├── c/
-│   │   └── mdbl.c                 # C glue code for Moddable runtime & Pebble SDK
-│   ├── embeddedjs/
-│   │   ├── icons.js               # Pixel-perfect 3D printer & action icons
-│   │   ├── main.js                # App lifecycle, button clicks, wakeup handlers
-│   │   ├── manifest.json          # Moddable XS module build manifest
-│   │   ├── prusa-api.js           # Network message bridge
-│   │   ├── screens.js             # UI screen renderers
-│   │   ├── state.js               # Central state management
-│   │   └── theme.js               # Design tokens, color palette, and layout specs
-│   └── pkjs/
-│       ├── config.js              # Clay configuration schema
-│       └── index.js               # PebbleKit JS companion backend
-└── wscript                        # Waf build script
+│   ├── embeddedjs/            # Code executed on the Pebble watch (Moddable XS)
+│   │   ├── main.js            # App lifecycle, screen router, button listeners
+│   │   ├── screens.js         # Screen rendering (Main, Stop, Pause, Reminder, etc.)
+│   │   ├── icons.js           # Vector and pixel graphics (printer, icons, cues)
+│   │   ├── theme.js           # Color palette, font sizes, text truncation
+│   │   ├── state.js           # Reactive telemetry and UI state store
+│   │   └── prusa-api.js       # AppMessage bridge between watch and phone
+│   └── pkjs/                  # Code executed on the phone (PebbleKit JS)
+│       ├── index.js           # Telemetry polling loop and AppMessage dispatcher
+│       ├── prusa-api.js       # REST calls to connect.prusa3d.com/app/printers
+│       ├── prusa-auth.js      # OAuth2 token exchange with account.prusa3d.com
+│       ├── timeline.js        # Pebble Timeline pin creation, updates, and cleanup
+│       ├── config.js          # Clay configuration screen schema
+│       └── pkce.js            # PKCE cryptographic helper
 ```
 
----
+### Build Requirements
 
-## 🚀 Building & Installation
+- Pebble SDK (with Rebble configuration)
+- Node.js (v16+)
 
-### Prerequisites
-- [Pebble SDK](https://developer.repebble.com) (v4.33.1 or later)
-- Node.js & npm
-- Python 3
+### Build Commands
 
-### 1. Install Dependencies
-```bash
-npm install
-```
-
-### 2. Build the Application
+Build the `.pbw` package:
 ```bash
 pebble build
 ```
-This pre-compiles the embedded JavaScript via Moddable XS into `.xsa` bytecode modules, packs media resources, and builds binaries for the **emery** and **gabbro** platforms into `build/Prusa-Connect.pbw`.
 
-### 3. Run in Emulator
+Install to an emulator:
 ```bash
 pebble install --emulator emery
 ```
 
-To view live runtime logs from both the watch and phone environments:
+Install to a physical watch via phone proxy:
 ```bash
-pebble logs --emulator emery
+pebble install --cloudpebble
 ```
-
-### 4. Install on Physical Watch
-Ensure developer mode is enabled in the Pebble mobile app:
+Or over local IP:
 ```bash
 pebble install --phone <PHONE_IP_ADDRESS>
 ```
 
+### Key Areas to Customize
+
+- **Poll Interval:** Modify `POLL_INTERVAL_MS` in `src/pkjs/index.js` (default: 30 seconds).
+- **Colors and Fonts:** Edit `src/embeddedjs/theme.js` to change the palette or typography.
+- **Screen Layouts:** Modify functions in `src/embeddedjs/screens.js`.
+- **Command Payloads:** Inspect and adjust printer command JSON payloads in `src/pkjs/prusa-api.js`.
+
 ---
 
-## 📄 License
+## AI Notice
 
-MIT © MakeAwesomeHappen
+Most of this application was vibe-coded using AI, alongside manual research, reverse-engineering of the Prusa Connect endpoints, and hardware testing.
+
+---
+
+## Contributing
+
+Pull requests, bug reports, and suggestions are very welcome! If you notice something that can be improved, want to support additional features, or have refinements for different Pebble models, feel free to open an issue or submit a PR.
+
+---
+
+## License
+
+MIT License. See project files for details.
