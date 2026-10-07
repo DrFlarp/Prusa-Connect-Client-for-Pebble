@@ -50,7 +50,7 @@ It connects your Pebble to your Prusa Connect account, showing print progress, s
 
 ## Setup Guide
 
-> 📖 **Interactive Online Guide:** Visit the [GitHub Pages Setup Guide](https://rp1-mvac.github.io/Prusa-Connect/) for an interactive walkthrough with 1-click command copying, screenshots, and visual troubleshooting.
+> 📖 **Interactive Online Guide:** Visit the [GitHub Pages Setup Guide](https://rp1-mvac.github.io/Prusa-Connect-Client-for-Pebble/) for an interactive walkthrough with 1-click command copying, screenshots, and visual troubleshooting.
 
 ### Quick Setup (30 Seconds)
 
